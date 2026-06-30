@@ -20,3 +20,8 @@ Sequential Logic -> at the positive clock edge, if write enable and destination 
 
 
 Immediate Generator:
+
+The Immediate Generator is combinational logic.
+Inputs: instruction, immediate type.
+Output: immediate
+Supports the following RISC-V immediate types and creates their immediate value for use: IMM_I, IMM_B, IMM_U, IMM_S, IMM_J.
