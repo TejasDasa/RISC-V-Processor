@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
+rm -rf obj_dir
 
 verilator --binary --timing -Wall --top-module regfile_tb \
   rtl/core/regfile.sv \

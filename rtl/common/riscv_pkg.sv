@@ -32,7 +32,7 @@ package riscv_pkg;
     BR_GE,
     BR_LTU,
     BR_GEU
-  } name;
+  } branch_op_t;
 
 
 endpackage
