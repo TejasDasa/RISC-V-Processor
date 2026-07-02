@@ -32,6 +32,13 @@ module branch_unit_tb;
     #1;
     check_eq32("BR_EQ", taken, 1'b1);
 
+    rs1_data  = 32'd5;
+    rs2_data  = 32'd5;
+    branch_op = BR_NE;
+    #1;
+    check_eq32("BR_NE", taken, 1'b0);
+
+    // fill out with rest of ops
 
     if (failures == 0) begin
       $display("PASS: all branch_unit tests passed");

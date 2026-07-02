@@ -26,7 +26,9 @@ module branch_unit (
 
       BR_LTU: if (rs1_data < rs2_data) taken = 1'b1;
 
-      BR_GEU: if (rs1_data < rs2_data) taken = 1'b1;
+      BR_GEU: if (rs1_data >= rs2_data) taken = 1'b1;
+
+      default: taken = 1'b0;
 
     endcase
   end
