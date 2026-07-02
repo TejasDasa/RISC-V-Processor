@@ -23,5 +23,16 @@ package riscv_pkg;
     IMM_J
   } imm_type_t;
 
+  // Branch Type DEF
+  typedef enum logic [2:0] {
+    BR_NONE,
+    BR_EQ,
+    BR_NE,
+    BR_LT,
+    BR_GE,
+    BR_LTU,
+    BR_GEU
+  } name;
+
 
 endpackage
