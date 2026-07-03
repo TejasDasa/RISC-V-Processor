@@ -23,27 +23,77 @@ module decoder (
   always_comb begin
 
     assign opcode = instr[6:0];
-    assign rd = instr[11:7];
+    assign rd_addr = instr[11:7];
     assign funct3 = instr[14:12];
-    assign rs1 = instr[19:15];
-    assign rs2 = instr[24:20];
+    assign rs1_addr = instr[19:15];
+    assign rs2_addr = instr[24:20];
     assign funct7 = instr[31:25];
-    
+
   end
 
   always_comb begin
 
     alu_op = ALU_ADD;
     imm_type = IMM_I;
-    reg_write_en = 0;
-    alu_src_imm = 0;
-    illegal_instr = 0;
+    reg_write_en = 1'b0;
+    alu_src_imm = 1'b0;
+    illegal_instr = 1'b0;
 
     unique case (opcode)
 
+      OPCODE_LUI: begin
+        reg_write_en = 1'b1;
+        alu_src_imm = 1'b1;
+        imm_type = IMM_U;
+        alu_op = ALU_ADD;
+        illegal_instr = 1'b0;
+      end
 
+      OPCODE_OP_IMM: begin
+        case (funct3)
+          FUNCT3_ADD_SUB: begin  // ADDI
+            reg_write_en = 1'b1;
+            alu_src_imm = 1'b1;
+            imm_type = IMM_I;
+            alu_op = ALU_ADD;
+            illegal_instr = 1'b0;
+          end
+
+          default: illegal_instr = 1'b1;
+        endcase
+      end
+
+      OPCODE_OP: begin
+        case (funct3)
+
+          FUNCT3_ADD_SUB: begin
+            case (funct7)
+
+              FUNCT7_ADD_SRL: begin
+                reg_write_en = 1'b1;
+                alu_src_imm = 1'b0;
+                alu_op = ALU_ADD;
+                illegal_instr = 1'b0;
+              end
+
+              FUNCT7_SUB_SRA: begin
+                reg_write_en = 1'b1;
+                alu_src_imm = 1'b0;
+                alu_op = ALU_SUB;
+                illegal_instr = 1'b0;
+              end
+
+              default: illegal_instr = 1'b1;
+
+            endcase
+          end
+
+          default: illegal_instr = 1'b1;
+        endcase
+      end
+
+      default: illegal_instr = 1'b1;
     endcase
-
 
   end
 
