@@ -49,6 +49,7 @@ module decoder_tb ();
 
     failures = 0;
 
+    // LUI Test
     instr = 32'd0;
     instr[6:0] = OPCODE_LUI;
     instr[11:7] = 5'd5;
@@ -62,6 +63,63 @@ module decoder_tb ();
 
     if (imm_type != IMM_U) $error("Imm type incorrect");
     if (alu_op != ALU_ADD) $error("ALU op incorrect");
+
+
+    // ADDI Test
+    instr = 32'd0;
+    instr[6:0] = OPCODE_OP_IMM;
+    instr[11:7] = 5'd3;
+    instr[14:12] = FUNCT3_ADD_SUB;
+    instr[19:15] = 5'd1;
+    instr[31:20] = 12'd7;
+    #1;
+
+    check_eq5("ADDI rd", rd_addr, 5'd3);
+    check_eq5("ADDI rs1", rs1_addr, 5'd1);
+    check_eq1("ADDI reg write en", reg_write_en, 1'b1);
+    check_eq1("ADDI alu src imm", alu_src_imm, 1'b1);
+    check_eq1("ADDI illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type != IMM_I) $error("Imm type incorrect");
+    if (alu_op != ALU_ADD) $error("ALU op incorrect");
+
+
+    // ADD Test
+    instr = 32'd0;
+    instr[6:0] = OPCODE_OP;
+    instr[11:7] = 5'd4;
+    instr[14:12] = FUNCT3_ADD_SUB;
+    instr[19:15] = 5'd1;
+    instr[24:20] = 5'd2;
+    instr[31:25] = FUNCT7_ADD_SRL;
+    #1;
+
+    check_eq5("ADD rd", rd_addr, 5'd4);
+    check_eq5("ADD rs1", rs1_addr, 5'd1);
+    check_eq5("ADD rs2", rs2_addr, 5'd2);
+    check_eq1("ADD reg write en", reg_write_en, 1'b1);
+    check_eq1("ADD alu src imm", alu_src_imm, 1'b0);
+    check_eq1("ADD illegal instr", illegal_instr, 1'b0);
+
+    if (alu_op != ALU_ADD) $error("ALU op incorrect");
+
+
+    // SUB Test
+    instr = 32'd0;
+    instr[6:0] = OPCODE_OP;
+    instr[11:7] = 5'd5;
+    instr[14:12] = FUNCT3_ADD_SUB;
+    instr[19:15] = 5'd3;
+    instr[24:20] = 5'd4;
+    instr[31:25] = FUNCT7_SUB_SRA;
+    #1 check_eq5("SUB rd", rd_addr, 5'd5);
+    check_eq5("SUB rs1", rs1_addr, 5'd3);
+    check_eq5("SUB rs2", rs2_addr, 5'd4);
+    check_eq1("SUB reg write en", reg_write_en, 1'b1);
+    check_eq1("SUB alu src imm", alu_src_imm, 1'b0);
+    check_eq1("SUB illegal instr", illegal_instr, 1'b0);
+
+    if (alu_op != ALU_SUB) $error("ALU op incorrect");
 
 
 
