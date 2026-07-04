@@ -112,7 +112,9 @@ module decoder_tb ();
     instr[19:15] = 5'd3;
     instr[24:20] = 5'd4;
     instr[31:25] = FUNCT7_SUB_SRA;
-    #1 check_eq5("SUB rd", rd_addr, 5'd5);
+    #1;
+    
+    check_eq5("SUB rd", rd_addr, 5'd5);
     check_eq5("SUB rs1", rs1_addr, 5'd3);
     check_eq5("SUB rs2", rs2_addr, 5'd4);
     check_eq1("SUB reg write en", reg_write_en, 1'b1);
@@ -121,6 +123,13 @@ module decoder_tb ();
 
     if (alu_op != ALU_SUB) $error("ALU op incorrect");
 
+    
+    // Illegal Instruction Test
+    instr = 32'd0;
+    #1
+
+    check_eq1("Illegal pass", illegal_instr, 1'b1);
+    check_eq1("Illegal register lock", reg_write_en, 1'b0);
 
 
     if (failures == 0) begin

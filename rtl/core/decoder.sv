@@ -69,14 +69,14 @@ module decoder (
           FUNCT3_ADD_SUB: begin
             case (funct7)
 
-              FUNCT7_ADD_SRL: begin
+              FUNCT7_ADD_SRL: begin  // ADD
                 reg_write_en = 1'b1;
                 alu_src_imm = 1'b0;
                 alu_op = ALU_ADD;
                 illegal_instr = 1'b0;
               end
 
-              FUNCT7_SUB_SRA: begin
+              FUNCT7_SUB_SRA: begin  // SUB
                 reg_write_en = 1'b1;
                 alu_src_imm = 1'b0;
                 alu_op = ALU_SUB;
@@ -87,6 +87,70 @@ module decoder (
 
             endcase
           end
+
+          FUNCT3_AND: begin
+            reg_write_en = 1'b1;
+            alu_src_imm = 1'b0;
+            alu_op = ALU_AND;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_OR: begin
+            reg_write_en = 1'b1;
+            alu_src_imm = 1'b0;
+            alu_op = ALU_OR;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_XOR: begin
+            reg_write_en = 1'b1;
+            alu_src_imm = 1'b0;
+            alu_op = ALU_XOR;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_SLL: begin
+            reg_write_en = 1'b1;
+            alu_src_imm = 1'b0;
+            alu_op = ALU_SLL;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_SLT: begin
+            reg_write_en = 1'b1;
+            alu_src_imm = 1'b0;
+            alu_op = ALU_SLT;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_SLTU: begin
+            reg_write_en = 1'b1;
+            alu_src_imm = 1'b0;
+            alu_op = ALU_SLTU;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_SRL_SRA: begin
+            case (funct7)
+              FUNCT7_ADD_SRL: begin
+                reg_write_en = 1'b1;
+                alu_src_imm = 1'b0;
+                alu_op = ALU_SRL;
+                illegal_instr = 1'b0;
+              end
+
+              FUNCT7_SUB_SRA: begin
+                reg_write_en = 1'b1;
+                alu_src_imm = 1'b0;
+                alu_op = ALU_SRA;
+                illegal_instr;
+              end
+
+              default: illegal_instr = 1'b1;
+            endcase
+
+          end
+
 
           default: illegal_instr = 1'b1;
         endcase
