@@ -113,7 +113,7 @@ module decoder_tb ();
     instr[24:20] = 5'd4;
     instr[31:25] = FUNCT7_SUB_SRA;
     #1;
-    
+
     check_eq5("SUB rd", rd_addr, 5'd5);
     check_eq5("SUB rs1", rs1_addr, 5'd3);
     check_eq5("SUB rs2", rs2_addr, 5'd4);
@@ -123,12 +123,94 @@ module decoder_tb ();
 
     if (alu_op != ALU_SUB) $error("ALU op incorrect");
 
-    
+    // AND Test
+    instr = 32'd0;
+    instr[6:0] = OPCODE_OP;
+    instr[11:7] = 5'd2;
+    instr[14:12] = FUNCT3_AND;
+    instr[19:15] = 5'd3;
+    instr[24:20] = 5'd4;
+    #1;
+
+    check_eq5("AND rd", rd_addr, 5'd2);
+    check_eq5("AND rs1", rs1_addr, 5'd3);
+    check_eq5("AND rs2", rs2_addr, 5'd4);
+    check_eq1("AND reg write en", reg_write_en, 1'b1);
+    check_eq1("AND alu src imm", alu_src_imm, 1'b0);
+    check_eq1("AND illegal instr", illegal_instr, 1'b0);
+
+
+    // OR Test
+    instr = 32'd0;
+    instr[6:0] = OPCODE_OP;
+    instr[11:7] = 5'd2;
+    instr[14:12] = FUNCT3_OR;
+    instr[19:15] = 5'd3;
+    instr[24:20] = 5'd4;
+    #1;
+
+    check_eq5("OR rd", rd_addr, 5'd2);
+    check_eq5("OR rs1", rs1_addr, 5'd3);
+    check_eq5("OR rs2", rs2_addr, 5'd4);
+    check_eq1("OR reg write en", reg_write_en, 1'b1);
+    check_eq1("OR alu src imm", alu_src_imm, 1'b0);
+    check_eq1("OR illegal instr", illegal_instr, 1'b0);
+
+
+    // XOR Test
+    instr = 32'd0;
+    instr[6:0] = OPCODE_OP;
+    instr[11:7] = 5'd2;
+    instr[14:12] = FUNCT3_XOR;
+    instr[19:15] = 5'd3;
+    instr[24:20] = 5'd4;
+    #1;
+
+    check_eq5("XOR rd", rd_addr, 5'd2);
+    check_eq5("XOR rs1", rs1_addr, 5'd3);
+    check_eq5("XOR rs2", rs2_addr, 5'd4);
+    check_eq1("XOR reg write en", reg_write_en, 1'b1);
+    check_eq1("XOR alu src imm", alu_src_imm, 1'b0);
+    check_eq1("XOR illegal instr", illegal_instr, 1'b0);
+
+
+    // SLL Test
+    instr = 32'd0;
+    instr[6:0] = OPCODE_OP;
+    instr[11:7] = 5'd2;
+    instr[14:12] = FUNCT3_SLL;
+    instr[19:15] = 5'd3;
+    instr[24:20] = 5'd4;
+    #1;
+
+    check_eq5("SLL rd", rd_addr, 5'd2);
+    check_eq5("SLL rs1", rs1_addr, 5'd3);
+    check_eq5("SLL rs2", rs2_addr, 5'd4);
+    check_eq1("SLL reg write en", reg_write_en, 1'b1);
+    check_eq1("SLL alu src imm", alu_src_imm, 1'b0);
+    check_eq1("SLL illegal instr", illegal_instr, 1'b0);
+
+
+    // SLT Test
+    instr = 32'd0;
+    instr[6:0] = OPCODE_OP;
+    instr[11:7] = 5'd2;
+    instr[14:12] = FUNCT3_SLT;
+    instr[19:15] = 5'd3;
+    instr[24:20] = 5'd4;
+    #1;
+
+    check_eq5("SLT rd", rd_addr, 5'd2);
+    check_eq5("SLT rs1", rs1_addr, 5'd3);
+    check_eq5("SLT rs2", rs2_addr, 5'd4);
+    check_eq1("SLT reg write en", reg_write_en, 1'b1);
+    check_eq1("SLT alu src imm", alu_src_imm, 1'b0);
+    check_eq1("SLT illegal instr", illegal_instr, 1'b0);
+
+
     // Illegal Instruction Test
     instr = 32'd0;
-    #1
-
-    check_eq1("Illegal pass", illegal_instr, 1'b1);
+    #1 check_eq1("Illegal pass", illegal_instr, 1'b1);
     check_eq1("Illegal register lock", reg_write_en, 1'b0);
 
 

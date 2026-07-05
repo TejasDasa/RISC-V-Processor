@@ -32,6 +32,7 @@ run_test "alu_tb" "./scripts/run_alu_tb.sh"
 run_test "regfile_tb" "./scripts/run_regfile_tb.sh"
 run_test "imm_gen_tb" "./scripts/run_imm_gen_tb.sh"
 run_test "branch_unit_tb.sv" "./scripts/run_branch_unit_tb.sh"
+run_test "decoder_tb.sv" "./scripts/run_decoder_tb.sh"
 
 echo ""
 echo "=============================="
