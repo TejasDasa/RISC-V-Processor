@@ -65,6 +65,54 @@ module decoder (
             illegal_instr = 1'b0;
           end
 
+          FUNCT3_XOR: begin
+            imm_type = IMM_I;
+            alu_op = ALU_XOR;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_OR: begin
+            imm_type = IMM_I;
+            alu_op = ALU_OR;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_SLT: begin
+            imm_type = IMM_I;
+            alu_op = ALU_SLT;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_SLTU: begin
+            imm_type = IMM_I;
+            alu_op = ALU_SLTU;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_SLL: begin
+            imm_type = IMM_I;
+            alu_op = ALU_SLL;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_SRL_SRA: begin
+            imm_type = IMM_I;
+
+            case (funct7)
+              FUNCT7_ADD_SRL: begin
+                alu_op = ALU_SRL;
+                illegal_instr = 1'b0;
+              end
+
+              FUNCT3_SRL_SRA: begin
+                alu_op = ALU_SRA;
+                illegal_instr = 1'b0;
+              end
+
+              default: illegal_instr = 1'b1;
+            endcase
+          end
+
           default: illegal_instr = 1'b1;
         endcase
       end
