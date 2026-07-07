@@ -83,6 +83,43 @@ module decoder_tb ();
     if (imm_type != IMM_I) $error("Imm type incorrect");
     if (alu_op != ALU_ADD) $error("ALU op incorrect");
 
+    
+    // ANDI Test
+    instr = 32'd0;
+    instr[6:0] = OPCODE_OP_IMM;
+    instr[11:7] = 5'd9;
+    instr[14:12] = FUNCT3_AND;
+    instr[19:15] = 5'd1;
+    instr[31:20] = 12'd0;
+    #1;
+
+    check_eq5("ANDI rd", rd_addr, 5'd9);
+    check_eq5("ANDI rs1", rs1_addr, 5'd1);
+    check_eq1("ANDI reg write en", reg_write_en, 1'b1);
+    check_eq1("ANDI alu src imm", alu_src_imm, 1'b1);
+    check_eq1("ANDI illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type != IMM_I) $error("Imm type incorrect");
+    if (alu_op != ALU_AND) $error("ALU op incorrect");
+
+    // ORI Test
+    instr = 32'd0;
+    instr[6:0] = OPCODE_OP_IMM;
+    instr[11:7] = 5'd9;
+    instr[14:12] = FUNCT3_OR;
+    instr[19:15] = 5'd1;
+    instr[31:20] = 12'd0;
+    #1;
+
+    check_eq5("ORI rd", rd_addr, 5'd9);
+    check_eq5("ORI rs1", rs1_addr, 5'd1);
+    check_eq1("ORI reg write en", reg_write_en, 1'b1);
+    check_eq1("ORI alu src imm", alu_src_imm, 1'b1);
+    check_eq1("ORI illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type != IMM_I) $error("Imm type incorrect");
+    if (alu_op != ALU_OR) $error("ALU op incorrect");
+
 
     // ADD Test
     instr = 32'd0;
