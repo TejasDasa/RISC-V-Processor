@@ -102,6 +102,7 @@ module decoder_tb ();
     if (imm_type != IMM_I) $error("Imm type incorrect");
     if (alu_op != ALU_AND) $error("ALU op incorrect");
 
+
     // ORI Test
     instr = 32'd0;
     instr[6:0] = OPCODE_OP_IMM;
@@ -119,6 +120,164 @@ module decoder_tb ();
 
     if (imm_type != IMM_I) $error("Imm type incorrect");
     if (alu_op != ALU_OR) $error("ALU op incorrect");
+
+
+    // XORI x11, x1, imm
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_OP_IMM;
+    instr[11:7]  = 5'd11;
+    instr[14:12] = FUNCT3_XOR;
+    instr[19:15] = 5'd1;
+    instr[31:20] = 12'h0FF;
+    #1;
+
+    check_eq5("XORI rd addr", rd_addr, 5'd11);
+    check_eq5("XORI rs1 addr", rs1_addr, 5'd1);
+    check_eq1("XORI reg write en", reg_write_en, 1'b1);
+    check_eq1("XORI alu src imm", alu_src_imm, 1'b1);
+    check_eq1("XORI illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_I) begin
+      $error("XORI imm_type failed: expected IMM_I");
+      failures++;
+    end
+
+    if (alu_op !== ALU_XOR) begin
+      $error("XORI alu_op failed: expected ALU_XOR");
+      failures++;
+    end
+
+    // SLTI x12, x1, imm
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_OP_IMM;
+    instr[11:7]  = 5'd12;          // rd = x12
+    instr[14:12] = FUNCT3_SLT;     // SLTI
+    instr[19:15] = 5'd1;           // rs1 = x1
+    instr[31:20] = 12'd5;          // immediate
+    #1;
+
+    check_eq5("SLTI rd addr", rd_addr, 5'd12);
+    check_eq5("SLTI rs1 addr", rs1_addr, 5'd1);
+    check_eq1("SLTI reg write en", reg_write_en, 1'b1);
+    check_eq1("SLTI alu src imm", alu_src_imm, 1'b1);
+    check_eq1("SLTI illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_I) begin
+      $error("SLTI imm_type failed: expected IMM_I");
+      failures++;
+    end
+
+    if (alu_op !== ALU_SLT) begin
+      $error("SLTI alu_op failed: expected ALU_SLT");
+      failures++;
+    end
+
+
+    // SLTIU x13, x1, imm
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_OP_IMM;
+    instr[11:7]  = 5'd13;          // rd = x13
+    instr[14:12] = FUNCT3_SLTU;    // SLTIU
+    instr[19:15] = 5'd1;           // rs1 = x1
+    instr[31:20] = 12'd5;          // immediate
+    #1;
+
+    check_eq5("SLTIU rd addr", rd_addr, 5'd13);
+    check_eq5("SLTIU rs1 addr", rs1_addr, 5'd1);
+    check_eq1("SLTIU reg write en", reg_write_en, 1'b1);
+    check_eq1("SLTIU alu src imm", alu_src_imm, 1'b1);
+    check_eq1("SLTIU illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_I) begin
+      $error("SLTIU imm_type failed: expected IMM_I");
+      failures++;
+    end
+
+    if (alu_op !== ALU_SLTU) begin
+      $error("SLTIU alu_op failed: expected ALU_SLTU");
+      failures++;
+    end
+
+
+    // SLLI x14, x1, 3
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_OP_IMM;
+    instr[11:7]  = 5'd14;            // rd = x14
+    instr[14:12] = FUNCT3_SLL;       // SLLI
+    instr[19:15] = 5'd1;             // rs1 = x1
+    instr[24:20] = 5'd3;             // shamt = 3
+    instr[31:25] = FUNCT7_ADD_SRL;   // required for SLLI
+    #1;
+
+    check_eq5("SLLI rd addr", rd_addr, 5'd14);
+    check_eq5("SLLI rs1 addr", rs1_addr, 5'd1);
+    check_eq1("SLLI reg write en", reg_write_en, 1'b1);
+    check_eq1("SLLI alu src imm", alu_src_imm, 1'b1);
+    check_eq1("SLLI illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_I) begin
+      $error("SLLI imm_type failed: expected IMM_I");
+      failures++;
+    end
+
+    if (alu_op !== ALU_SLL) begin
+      $error("SLLI alu_op failed: expected ALU_SLL");
+      failures++;
+    end
+
+
+    // SRLI x15, x1, 3
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_OP_IMM;
+    instr[11:7]  = 5'd15;            // rd = x15
+    instr[14:12] = FUNCT3_SRL_SRA;   // SRLI/SRAI group
+    instr[19:15] = 5'd1;             // rs1 = x1
+    instr[24:20] = 5'd3;             // shamt = 3
+    instr[31:25] = FUNCT7_ADD_SRL;   // SRLI
+    #1;
+
+    check_eq5("SRLI rd addr", rd_addr, 5'd15);
+    check_eq5("SRLI rs1 addr", rs1_addr, 5'd1);
+    check_eq1("SRLI reg write en", reg_write_en, 1'b1);
+    check_eq1("SRLI alu src imm", alu_src_imm, 1'b1);
+    check_eq1("SRLI illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_I) begin
+      $error("SRLI imm_type failed: expected IMM_I");
+      failures++;
+    end
+
+    if (alu_op !== ALU_SRL) begin
+      $error("SRLI alu_op failed: expected ALU_SRL");
+      failures++;
+    end
+
+
+    // SRAI x16, x1, 3
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_OP_IMM;
+    instr[11:7]  = 5'd16;            // rd = x16
+    instr[14:12] = FUNCT3_SRL_SRA;   // SRLI/SRAI group
+    instr[19:15] = 5'd1;             // rs1 = x1
+    instr[24:20] = 5'd3;             // shamt = 3
+    instr[31:25] = FUNCT7_SUB_SRA;   // SRAI
+    #1;
+
+    check_eq5("SRAI rd addr", rd_addr, 5'd16);
+    check_eq5("SRAI rs1 addr", rs1_addr, 5'd1);
+    check_eq1("SRAI reg write en", reg_write_en, 1'b1);
+    check_eq1("SRAI alu src imm", alu_src_imm, 1'b1);
+    check_eq1("SRAI illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_I) begin
+      $error("SRAI imm_type failed: expected IMM_I");
+      failures++;
+    end
+
+    if (alu_op !== ALU_SRA) begin
+      $error("SRAI alu_op failed: expected ALU_SRA");
+      failures++;
+    end
 
 
     // ADD Test
