@@ -15,6 +15,9 @@ module decoder_tb ();
   logic reg_write_en;
   logic alu_src_imm;
   logic illegal_instr;
+  logic mem_read_en;
+  logic mem_write_en;
+  logic mem_to_reg;
 
   decoder dut (
       .instr(instr),
@@ -25,6 +28,9 @@ module decoder_tb ();
       .imm_type(imm_type),
       .reg_write_en(reg_write_en),
       .alu_src_imm(alu_src_imm),
+      .mem_read_en(mem_read_en),
+      .mem_write_en(mem_write_en),
+      .mem_to_reg(mem_to_reg),
       .illegal_instr(illegal_instr)
   );
 
@@ -63,6 +69,99 @@ module decoder_tb ();
 
     if (imm_type != IMM_U) $error("Imm type incorrect");
     if (alu_op != ALU_ADD) $error("ALU op incorrect");
+
+    // LW x5, 8(x1)
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_LOAD;
+    instr[11:7]  = 5'd5;       // rd = x5
+    instr[14:12] = FUNCT3_LW;
+    instr[19:15] = 5'd1;       // rs1 = x1 base address
+    instr[31:20] = 12'd8;      // offset = 8
+    #1;
+
+    check_eq5("LW rd addr", rd_addr, 5'd5);
+    check_eq5("LW rs1 addr", rs1_addr, 5'd1);
+
+    check_eq1("LW reg write en", reg_write_en, 1'b1);
+    check_eq1("LW alu src imm", alu_src_imm, 1'b1);
+    check_eq1("LW mem read en", mem_read_en, 1'b1);
+    check_eq1("LW mem write en", mem_write_en, 1'b0);
+    check_eq1("LW mem to reg", mem_to_reg, 1'b1);
+    check_eq1("LW illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_I) begin
+      $error("LW imm_type failed: expected IMM_I");
+      failures++;
+    end
+
+    if (alu_op !== ALU_ADD) begin
+      $error("LW alu_op failed: expected ALU_ADD");
+      failures++;
+    end
+
+
+    // SW x5, 8(x1)
+    // rs1 = x1 base address
+    // rs2 = x5 data to store
+    instr = 32'b0;
+    instr[6:0]    = OPCODE_STORE;
+    instr[14:12]  = FUNCT3_SW;
+    instr[19:15]  = 5'd1;       // rs1 = x1
+    instr[24:20]  = 5'd5;       // rs2 = x5
+    instr[31:25]  = 7'b0000000; // imm[11:5]
+    instr[11:7]   = 5'b01000;   // imm[4:0] = 8
+    #1;
+
+    check_eq5("SW rs1 addr", rs1_addr, 5'd1);
+    check_eq5("SW rs2 addr", rs2_addr, 5'd5);
+
+    check_eq1("SW reg write en", reg_write_en, 1'b0);
+    check_eq1("SW alu src imm", alu_src_imm, 1'b1);
+    check_eq1("SW mem read en", mem_read_en, 1'b0);
+    check_eq1("SW mem write en", mem_write_en, 1'b1);
+    check_eq1("SW mem to reg", mem_to_reg, 1'b0);
+    check_eq1("SW illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_S) begin
+      $error("SW imm_type failed: expected IMM_S");
+      failures++;
+    end
+
+    if (alu_op !== ALU_ADD) begin
+      $error("SW alu_op failed: expected ALU_ADD");
+      failures++;
+    end
+
+
+    // Illegal LOAD funct3
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_LOAD;
+    instr[11:7]  = 5'd5;
+    instr[14:12] = 3'b000;      // unsupported load type for now
+    instr[19:15] = 5'd1;
+    instr[31:20] = 12'd8;
+    #1;
+
+    check_eq1("illegal LOAD illegal instr", illegal_instr, 1'b1);
+    check_eq1("illegal LOAD reg write en", reg_write_en, 1'b0);
+    check_eq1("illegal LOAD mem read en", mem_read_en, 1'b0);
+    check_eq1("illegal LOAD mem write en", mem_write_en, 1'b0);
+
+
+    // Illegal STORE funct3
+    instr = 32'b0;
+    instr[6:0]    = OPCODE_STORE;
+    instr[14:12]  = 3'b000;      // unsupported store type for now
+    instr[19:15]  = 5'd1;
+    instr[24:20]  = 5'd5;
+    instr[31:25]  = 7'b0000000;
+    instr[11:7]   = 5'b01000;
+    #1;
+
+    check_eq1("illegal STORE illegal instr", illegal_instr, 1'b1);
+    check_eq1("illegal STORE reg write en", reg_write_en, 1'b0);
+    check_eq1("illegal STORE mem read en", mem_read_en, 1'b0);
+    check_eq1("illegal STORE mem write en", mem_write_en, 1'b0);
 
 
     // ADDI Test

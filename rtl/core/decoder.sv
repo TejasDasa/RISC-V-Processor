@@ -11,7 +11,10 @@ module decoder (
 
     output logic reg_write_en,
     output logic alu_src_imm,
-    output logic illegal_instr
+    output logic illegal_instr,
+    output logic mem_read_en,
+    output logic mem_write_en,
+    output logic mem_to_reg
 );
 
   import riscv_pkg::*;
@@ -38,8 +41,45 @@ module decoder (
     reg_write_en = 1'b0;
     alu_src_imm = 1'b0;
     illegal_instr = 1'b0;
+    mem_read_en = 1'b0;
+    mem_write_en = 1'b0;
+    mem_to_reg = 1'b0;
 
     unique case (opcode)
+
+      OPCODE_LOAD: begin
+        case (funct3)
+          FUNCT3_LW: begin
+            alu_op = ALU_ADD;
+            imm_type = IMM_I;
+            reg_write_en = 1'b1;
+            alu_src_imm = 1'b1;
+            mem_read_en = 1'b1;
+            mem_write_en = 1'b0;
+            mem_to_reg = 1'b1;
+            illegal_instr = 1'b0;
+          end
+
+          default: illegal_instr = 1'b1;
+        endcase
+      end
+
+      OPCODE_STORE: begin
+        case (funct3)
+          FUNCT3_SW: begin
+            alu_op = ALU_ADD;
+            imm_type = IMM_S;
+            reg_write_en = 1'b0;
+            alu_src_imm = 1'b1;
+            mem_read_en = 1'b0;
+            mem_write_en = 1'b1;
+            mem_to_reg = 1'b0;
+            illegal_instr = 1'b0;
+          end
+
+          default: illegal_instr = 1'b1;
+        endcase
+      end
 
       OPCODE_LUI: begin
         reg_write_en = 1'b1;
@@ -104,7 +144,7 @@ module decoder (
                 illegal_instr = 1'b0;
               end
 
-              FUNCT3_SRL_SRA: begin
+              FUNCT7_SUB_SRA: begin
                 alu_op = ALU_SRA;
                 illegal_instr = 1'b0;
               end
