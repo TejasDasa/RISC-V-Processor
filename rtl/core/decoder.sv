@@ -8,13 +8,17 @@ module decoder (
 
     output riscv_pkg::alu_op_t   alu_op,
     output riscv_pkg::imm_type_t imm_type,
+    output riscv_pkg::branch_op_t branch_op,
 
     output logic reg_write_en,
     output logic alu_src_imm,
     output logic illegal_instr,
     output logic mem_read_en,
     output logic mem_write_en,
-    output logic mem_to_reg
+    output logic mem_to_reg,
+    output logic jump_en,
+    output logic jump_reg_en,
+    output logic wb_pc4
 );
 
   import riscv_pkg::*;
@@ -36,6 +40,7 @@ module decoder (
 
   always_comb begin
 
+    branch_op = BR_NONE;
     alu_op = ALU_ADD;
     imm_type = IMM_I;
     reg_write_en = 1'b0;
@@ -44,6 +49,9 @@ module decoder (
     mem_read_en = 1'b0;
     mem_write_en = 1'b0;
     mem_to_reg = 1'b0;
+    jump_en = 1'b0;
+    jump_reg_en = 1'b0;
+    wb_pc4 = 1'b0;
 
     unique case (opcode)
 
@@ -79,6 +87,82 @@ module decoder (
 
           default: illegal_instr = 1'b1;
         endcase
+      end
+
+      OPCODE_BRANCH: begin
+        imm_type = IMM_B;
+        reg_write_en = 1'b0;
+        alu_src_imm = 1'b0;
+        mem_read_en = 1'b0;
+        mem_write_en = 1'b0;
+        mem_to_reg = 1'b0;
+        case (funct3)
+          FUNCT3_BEQ: begin
+            branch_op = BR_EQ;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_BNE: begin
+            branch_op = BR_NE;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_BLT: begin
+            branch_op = BR_LT;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_BGE: begin
+            branch_op = BR_GE;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_BLTU: begin
+            branch_op = BR_LTU;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_BGEU: begin
+            branch_op = BR_GEU;
+            illegal_instr = 1'b0;
+          end
+
+          default: begin
+            branch_op = BR_NONE;
+            illegal_instr = 1'b1;
+          end
+
+        endcase
+      end
+
+      OPCODE_JAL: begin
+        reg_write_en = 1'b1;
+        alu_src_imm = 1'b0;
+        imm_type = IMM_J;
+        alu_op = ALU_ADD;
+        mem_read_en = 1'b0;
+        mem_write_en = 1'b0;
+        mem_to_reg = 1'b0;
+        branch_op = BR_NONE;
+        jump_en = 1'b1;
+        jump_reg_en = 1'b0;
+        wb_pc4 = 1'b1;
+        illegal_instr = 1'b0;
+      end
+
+      OPCODE_JALR: begin
+        reg_write_en = 1'b1;
+        alu_src_imm = 1'b1;
+        imm_type = IMM_I;
+        alu_op = ALU_ADD;
+        mem_read_en = 1'b0;
+        mem_write_en = 1'b0;
+        mem_to_reg = 1'b0;
+        branch_op = BR_NONE;
+        jump_en = 1'b1;
+        jump_reg_en = 1'b1;
+        wb_pc4 = 1'b1;
+        illegal_instr = 1'b0;
       end
 
       OPCODE_LUI: begin

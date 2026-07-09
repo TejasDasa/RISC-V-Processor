@@ -11,13 +11,19 @@ module decoder_tb ();
 
   riscv_pkg::alu_op_t alu_op;
   riscv_pkg::imm_type_t imm_type;
+  riscv_pkg::branch_op_t branch_op;
 
   logic reg_write_en;
   logic alu_src_imm;
   logic illegal_instr;
+
   logic mem_read_en;
   logic mem_write_en;
   logic mem_to_reg;
+
+  logic jump_en;
+  logic jump_reg_en;
+  logic wb_pc4;
 
   decoder dut (
       .instr(instr),
@@ -26,12 +32,16 @@ module decoder_tb ();
       .rs2_addr(rs2_addr),
       .alu_op(alu_op),
       .imm_type(imm_type),
+      .branch_op(branch_op),
       .reg_write_en(reg_write_en),
       .alu_src_imm(alu_src_imm),
       .mem_read_en(mem_read_en),
       .mem_write_en(mem_write_en),
       .mem_to_reg(mem_to_reg),
-      .illegal_instr(illegal_instr)
+      .illegal_instr(illegal_instr),
+      .jump_en(jump_en),
+      .jump_reg_en(jump_reg_en),
+      .wb_pc4(wb_pc4)
   );
 
   int failures;
@@ -507,6 +517,273 @@ module decoder_tb ();
     instr = 32'd0;
     #1 check_eq1("Illegal pass", illegal_instr, 1'b1);
     check_eq1("Illegal register lock", reg_write_en, 1'b0);
+
+
+    // BEQ x1, x2, offset
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_BRANCH;
+    instr[14:12] = FUNCT3_BEQ;
+    instr[19:15] = 5'd1;   // rs1 = x1
+    instr[24:20] = 5'd2;   // rs2 = x2
+    #1;
+
+    check_eq5("BEQ rs1 addr", rs1_addr, 5'd1);
+    check_eq5("BEQ rs2 addr", rs2_addr, 5'd2);
+
+    check_eq1("BEQ reg write en", reg_write_en, 1'b0);
+    check_eq1("BEQ alu src imm", alu_src_imm, 1'b0);
+    check_eq1("BEQ mem read en", mem_read_en, 1'b0);
+    check_eq1("BEQ mem write en", mem_write_en, 1'b0);
+    check_eq1("BEQ mem to reg", mem_to_reg, 1'b0);
+    check_eq1("BEQ illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_B) begin
+      $error("BEQ imm_type failed: expected IMM_B");
+      failures++;
+    end
+
+    if (branch_op !== BR_EQ) begin
+      $error("BEQ branch_op failed: expected BR_EQ");
+      failures++;
+    end
+
+
+    // BNE x1, x2, offset
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_BRANCH;
+    instr[14:12] = FUNCT3_BNE;
+    instr[19:15] = 5'd1;
+    instr[24:20] = 5'd2;
+    #1;
+
+    check_eq5("BNE rs1 addr", rs1_addr, 5'd1);
+    check_eq5("BNE rs2 addr", rs2_addr, 5'd2);
+
+    check_eq1("BNE reg write en", reg_write_en, 1'b0);
+    check_eq1("BNE alu src imm", alu_src_imm, 1'b0);
+    check_eq1("BNE mem read en", mem_read_en, 1'b0);
+    check_eq1("BNE mem write en", mem_write_en, 1'b0);
+    check_eq1("BNE mem to reg", mem_to_reg, 1'b0);
+    check_eq1("BNE illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_B) begin
+      $error("BNE imm_type failed: expected IMM_B");
+      failures++;
+    end
+
+    if (branch_op !== BR_NE) begin
+      $error("BNE branch_op failed: expected BR_NE");
+      failures++;
+    end
+
+
+    // BLT x3, x4, offset
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_BRANCH;
+    instr[14:12] = FUNCT3_BLT;
+    instr[19:15] = 5'd3;
+    instr[24:20] = 5'd4;
+    #1;
+
+    check_eq5("BLT rs1 addr", rs1_addr, 5'd3);
+    check_eq5("BLT rs2 addr", rs2_addr, 5'd4);
+
+    check_eq1("BLT reg write en", reg_write_en, 1'b0);
+    check_eq1("BLT alu src imm", alu_src_imm, 1'b0);
+    check_eq1("BLT mem read en", mem_read_en, 1'b0);
+    check_eq1("BLT mem write en", mem_write_en, 1'b0);
+    check_eq1("BLT mem to reg", mem_to_reg, 1'b0);
+    check_eq1("BLT illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_B) begin
+      $error("BLT imm_type failed: expected IMM_B");
+      failures++;
+    end
+
+    if (branch_op !== BR_LT) begin
+      $error("BLT branch_op failed: expected BR_LT");
+      failures++;
+    end
+
+
+
+    // BGE x3, x4, offset
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_BRANCH;
+    instr[14:12] = FUNCT3_BGE;
+    instr[19:15] = 5'd3;
+    instr[24:20] = 5'd4;
+    #1;
+
+    check_eq5("BGE rs1 addr", rs1_addr, 5'd3);
+    check_eq5("BGE rs2 addr", rs2_addr, 5'd4);
+
+    check_eq1("BGE reg write en", reg_write_en, 1'b0);
+    check_eq1("BGE alu src imm", alu_src_imm, 1'b0);
+    check_eq1("BGE mem read en", mem_read_en, 1'b0);
+    check_eq1("BGE mem write en", mem_write_en, 1'b0);
+    check_eq1("BGE mem to reg", mem_to_reg, 1'b0);
+    check_eq1("BGE illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_B) begin
+      $error("BGE imm_type failed: expected IMM_B");
+      failures++;
+    end
+
+    if (branch_op !== BR_GE) begin
+      $error("BGE branch_op failed: expected BR_GE");
+      failures++;
+    end
+
+
+
+    // BLTU x5, x6, offset
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_BRANCH;
+    instr[14:12] = FUNCT3_BLTU;
+    instr[19:15] = 5'd5;
+    instr[24:20] = 5'd6;
+    #1;
+
+    check_eq5("BLTU rs1 addr", rs1_addr, 5'd5);
+    check_eq5("BLTU rs2 addr", rs2_addr, 5'd6);
+
+    check_eq1("BLTU reg write en", reg_write_en, 1'b0);
+    check_eq1("BLTU alu src imm", alu_src_imm, 1'b0);
+    check_eq1("BLTU mem read en", mem_read_en, 1'b0);
+    check_eq1("BLTU mem write en", mem_write_en, 1'b0);
+    check_eq1("BLTU mem to reg", mem_to_reg, 1'b0);
+    check_eq1("BLTU illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_B) begin
+      $error("BLTU imm_type failed: expected IMM_B");
+      failures++;
+    end
+
+    if (branch_op !== BR_LTU) begin
+      $error("BLTU branch_op failed: expected BR_LTU");
+      failures++;
+    end
+
+
+
+    // BGEU x5, x6, offset
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_BRANCH;
+    instr[14:12] = FUNCT3_BGEU;
+    instr[19:15] = 5'd5;
+    instr[24:20] = 5'd6;
+    #1;
+
+    check_eq5("BGEU rs1 addr", rs1_addr, 5'd5);
+    check_eq5("BGEU rs2 addr", rs2_addr, 5'd6);
+
+    check_eq1("BGEU reg write en", reg_write_en, 1'b0);
+    check_eq1("BGEU alu src imm", alu_src_imm, 1'b0);
+    check_eq1("BGEU mem read en", mem_read_en, 1'b0);
+    check_eq1("BGEU mem write en", mem_write_en, 1'b0);
+    check_eq1("BGEU mem to reg", mem_to_reg, 1'b0);
+    check_eq1("BGEU illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_B) begin
+      $error("BGEU imm_type failed: expected IMM_B");
+      failures++;
+    end
+
+    if (branch_op !== BR_GEU) begin
+      $error("BGEU branch_op failed: expected BR_GEU");
+      failures++;
+    end
+
+
+    // Illegal BRANCH funct3
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_BRANCH;
+    instr[14:12] = 3'b010;  // invalid branch funct3
+    instr[19:15] = 5'd1;
+    instr[24:20] = 5'd2;
+    #1;
+
+    check_eq1("illegal BRANCH illegal instr", illegal_instr, 1'b1);
+    check_eq1("illegal BRANCH reg write en", reg_write_en, 1'b0);
+    check_eq1("illegal BRANCH mem read en", mem_read_en, 1'b0);
+    check_eq1("illegal BRANCH mem write en", mem_write_en, 1'b0);
+
+    if (branch_op !== BR_NONE) begin
+      $error("illegal BRANCH branch_op failed: expected BR_NONE");
+      failures++;
+    end
+
+
+    // JAL x1, offset
+    instr = 32'b0;
+    instr[6:0]   = OPCODE_JAL;
+    instr[11:7]  = 5'd1;        // rd = x1, link register
+    instr[31]    = 1'b0;
+    instr[19:12] = 8'h00;
+    instr[20]    = 1'b0;
+    instr[30:21] = 10'd8;       // some jump immediate bits
+    #1;
+
+    check_eq5("JAL rd addr", rd_addr, 5'd1);
+
+    check_eq1("JAL reg write en", reg_write_en, 1'b1);
+    check_eq1("JAL alu src imm", alu_src_imm, 1'b0);
+    check_eq1("JAL mem read en", mem_read_en, 1'b0);
+    check_eq1("JAL mem write en", mem_write_en, 1'b0);
+    check_eq1("JAL mem to reg", mem_to_reg, 1'b0);
+    check_eq1("JAL jump en", jump_en, 1'b1);
+    check_eq1("JAL jump reg en", jump_reg_en, 1'b0);
+    check_eq1("JAL wb pc4", wb_pc4, 1'b1);
+    check_eq1("JAL illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_J) begin
+      $error("JAL imm_type failed: expected IMM_J");
+      failures++;
+    end
+
+    if (branch_op !== BR_NONE) begin
+      $error("JAL branch_op failed: expected BR_NONE");
+      failures++;
+    end
+
+
+    // JALR x1, 0(x5)
+    instr = 32'b0;
+    instr[6:0]    = OPCODE_JALR;
+    instr[11:7]   = 5'd1;            // rd = x1, link register
+    instr[14:12]  = 3'b000;          // required funct3 for JALR
+    instr[19:15]  = 5'd5;            // rs1 = x5, target base
+    instr[31:20]  = 12'd0;           // immediate = 0
+    #1;
+
+    check_eq5("JALR rd addr", rd_addr, 5'd1);
+    check_eq5("JALR rs1 addr", rs1_addr, 5'd5);
+
+    check_eq1("JALR reg write en", reg_write_en, 1'b1);
+    check_eq1("JALR alu src imm", alu_src_imm, 1'b1);
+    check_eq1("JALR mem read en", mem_read_en, 1'b0);
+    check_eq1("JALR mem write en", mem_write_en, 1'b0);
+    check_eq1("JALR mem to reg", mem_to_reg, 1'b0);
+    check_eq1("JALR jump en", jump_en, 1'b1);
+    check_eq1("JALR jump reg en", jump_reg_en, 1'b1);
+    check_eq1("JALR wb pc4", wb_pc4, 1'b1);
+    check_eq1("JALR illegal instr", illegal_instr, 1'b0);
+
+    if (imm_type !== IMM_I) begin
+      $error("JALR imm_type failed: expected IMM_I");
+      failures++;
+    end
+
+    if (alu_op !== ALU_ADD) begin
+      $error("JALR alu_op failed: expected ALU_ADD");
+      failures++;
+    end
+
+    if (branch_op !== BR_NONE) begin
+      $error("JALR branch_op failed: expected BR_NONE");
+      failures++;
+    end
 
 
     if (failures == 0) begin
