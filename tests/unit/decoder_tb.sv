@@ -77,8 +77,15 @@ module decoder_tb ();
     check_eq1("LUI alu src imm", alu_src_imm, 1'b1);
     check_eq1("LUI illegal instr", illegal_instr, 1'b0);
 
-    if (imm_type != IMM_U) $error("Imm type incorrect");
-    if (alu_op != ALU_ADD) $error("ALU op incorrect");
+    if (imm_type != IMM_U) begin
+      $error("Imm type incorrect");
+      failures++;
+    end
+
+    if (alu_op != ALU_ADD) begin
+      $error("ALU op incorrect");
+      failures++;
+    end
 
     // LW x5, 8(x1)
     instr = 32'b0;

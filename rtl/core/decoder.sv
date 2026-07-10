@@ -183,37 +183,37 @@ module decoder (
             illegal_instr = 1'b0;
           end
 
-          FUNCT3_AND: begin
+          FUNCT3_AND: begin // ANDI
             imm_type = IMM_I;
             alu_op = ALU_AND;
             illegal_instr = 1'b0;
           end
 
-          FUNCT3_XOR: begin
+          FUNCT3_XOR: begin // XORI
             imm_type = IMM_I;
             alu_op = ALU_XOR;
             illegal_instr = 1'b0;
           end
 
-          FUNCT3_OR: begin
+          FUNCT3_OR: begin // ORI
             imm_type = IMM_I;
             alu_op = ALU_OR;
             illegal_instr = 1'b0;
           end
 
-          FUNCT3_SLT: begin
+          FUNCT3_SLT: begin // SLTI
             imm_type = IMM_I;
             alu_op = ALU_SLT;
             illegal_instr = 1'b0;
           end
 
-          FUNCT3_SLTU: begin
+          FUNCT3_SLTU: begin // SLTUI
             imm_type = IMM_I;
             alu_op = ALU_SLTU;
             illegal_instr = 1'b0;
           end
 
-          FUNCT3_SLL: begin
+          FUNCT3_SLL: begin // SLLI
             imm_type = IMM_I;
             alu_op = ALU_SLL;
             illegal_instr = 1'b0;
