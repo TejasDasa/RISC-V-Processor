@@ -9,6 +9,8 @@ module decoder (
     output riscv_pkg::alu_op_t   alu_op,
     output riscv_pkg::imm_type_t imm_type,
     output riscv_pkg::branch_op_t branch_op,
+    output riscv_pkg::wb_sel_t wb_sel,
+    output riscv_pkg::alu_a_sel_t alu_a_sel,
 
     output logic reg_write_en,
     output logic alu_src_imm,
@@ -43,6 +45,8 @@ module decoder (
     branch_op = BR_NONE;
     alu_op = ALU_ADD;
     imm_type = IMM_I;
+    alu_a_sel = ALU_A_ZERO;
+    wb_sel = WB_ALU;
     reg_write_en = 1'b0;
     alu_src_imm = 1'b0;
     illegal_instr = 1'b0;
@@ -171,6 +175,8 @@ module decoder (
         imm_type = IMM_U;
         alu_op = ALU_ADD;
         illegal_instr = 1'b0;
+        alu_a_sel = ALU_A_ZERO;
+        wb_sel = WB_ALU;
       end
 
       OPCODE_OP_IMM: begin

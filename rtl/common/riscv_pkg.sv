@@ -34,6 +34,21 @@ package riscv_pkg;
     BR_GEU
   } branch_op_t;
 
+  // Write Back typedef
+  typedef enum logic [1:0] {
+    WB_ALU = 2'd0,
+    WB_MEM = 2'd1,
+    WB_PC4 = 2'd2,
+    WB_CSR = 2'd3
+  } wb_sel_t;
+
+  // ALU selection
+  typedef enum logic [1:0] {
+    ALU_A_RS1  = 2'd0,
+    ALU_A_PC   = 2'd1,
+    ALU_A_ZERO = 2'd2
+  } alu_a_sel_t;
+
   // OPCODE Constants
   localparam logic [6:0] OPCODE_LUI = 7'b0110111;
   localparam logic [6:0] OPCODE_AUIPC = 7'b0010111;
