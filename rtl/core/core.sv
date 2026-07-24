@@ -1,4 +1,6 @@
-module core (
+module core #(
+    parameter IMEM_INIT_FILE = ""
+)(
     input logic clk,
     input logic rst,
 
@@ -70,7 +72,9 @@ module core (
   // Instruction memory
   // ------------------------------------------------------------
 
-  imem imem_inst (
+  imem #(
+    .INIT_FILE(IMEM_INIT_FILE)
+  ) imem_inst (
       .addr(pc_current),
       .instr(instr)
   );
