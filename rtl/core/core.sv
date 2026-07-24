@@ -14,6 +14,8 @@ module core (
   logic [31:0] pc_plus_4;
   logic [31:0] instr;
 
+  logic [31:0] branch_target;
+
   // Decoder outputs
   logic [4:0] rd_addr;
   logic [4:0] rs1_addr;
@@ -63,11 +65,6 @@ module core (
       .next_pc(next_pc),
       .pc(pc_current)
   );
-
-  assign pc_plus_4 = pc_current + 32'd4;
-
-  // For now, no branch/jump PC redirection yet.
-  assign next_pc = pc_plus_4;
 
   // ------------------------------------------------------------
   // Instruction memory
@@ -178,6 +175,21 @@ module core (
       .write_data(rs2_data),
       .read_data(dmem_read_data)
   );
+
+
+  assign pc_plus_4 = pc_current + 32'd4;
+
+always_comb begin
+  if (jump_en && jump_reg_en) begin
+    next_pc = (rs1_data + imm) & 32'hFFFF_FFFE;
+  end else if (jump_en) begin
+    next_pc = pc_current + imm;
+  end else if (branch_taken) begin
+    next_pc = pc_current + imm;
+  end else begin
+    next_pc = pc_plus_4;
+  end
+end
 
   // ------------------------------------------------------------
   // Writeback mux

@@ -45,7 +45,7 @@ module decoder (
     branch_op = BR_NONE;
     alu_op = ALU_ADD;
     imm_type = IMM_I;
-    alu_a_sel = ALU_A_ZERO;
+    alu_a_sel = ALU_A_RS1;
     wb_sel = WB_ALU;
     reg_write_en = 1'b0;
     alu_src_imm = 1'b0;
@@ -70,6 +70,7 @@ module decoder (
             mem_write_en = 1'b0;
             mem_to_reg = 1'b1;
             illegal_instr = 1'b0;
+            wb_sel = WB_MEM;
           end
 
           default: illegal_instr = 1'b1;
@@ -87,6 +88,7 @@ module decoder (
             mem_write_en = 1'b1;
             mem_to_reg = 1'b0;
             illegal_instr = 1'b0;
+            wb_sel = WB_ALU;
           end
 
           default: illegal_instr = 1'b1;
@@ -152,6 +154,7 @@ module decoder (
         jump_reg_en = 1'b0;
         wb_pc4 = 1'b1;
         illegal_instr = 1'b0;
+        wb_sel = WB_PC4;
       end
 
       OPCODE_JALR: begin
@@ -167,6 +170,7 @@ module decoder (
         jump_reg_en = 1'b1;
         wb_pc4 = 1'b1;
         illegal_instr = 1'b0;
+        wb_sel = WB_PC4;
       end
 
       OPCODE_LUI: begin
