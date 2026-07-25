@@ -1,0 +1,48 @@
+
+build/branch.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+00000000 <_start>:
+   0:	00500093          	addi	ra,zero,5
+   4:	00500113          	addi	sp,zero,5
+   8:	00208463          	beq	ra,sp,10 <beq_pass>
+   c:	00100513          	addi	a0,zero,1
+
+00000010 <beq_pass>:
+  10:	00a00193          	addi	gp,zero,10
+  14:	00309463          	bne	ra,gp,1c <bne_pass>
+  18:	00200513          	addi	a0,zero,2
+
+0000001c <bne_pass>:
+  1c:	01400213          	addi	tp,zero,20
+  20:	0041c463          	blt	gp,tp,28 <blt_pass>
+  24:	00300513          	addi	a0,zero,3
+
+00000028 <blt_pass>:
+  28:	01e00293          	addi	t0,zero,30
+  2c:	0042d463          	bge	t0,tp,34 <bge_pass>
+  30:	00400513          	addi	a0,zero,4
+
+00000034 <bge_pass>:
+  34:	00100313          	addi	t1,zero,1
+  38:	00200393          	addi	t2,zero,2
+  3c:	00736463          	bltu	t1,t2,44 <bltu_pass>
+  40:	00500513          	addi	a0,zero,5
+
+00000044 <bltu_pass>:
+  44:	0063f463          	bgeu	t2,t1,4c <bgeu_pass>
+  48:	00600513          	addi	a0,zero,6
+
+0000004c <bgeu_pass>:
+  4c:	00730863          	beq	t1,t2,5c <failure>
+  50:	02a00413          	addi	s0,zero,42
+  54:	00100493          	addi	s1,zero,1
+  58:	0080006f          	jal	zero,60 <done>
+
+0000005c <failure>:
+  5c:	06300513          	addi	a0,zero,99
+
+00000060 <done>:
+  60:	0000006f          	jal	zero,60 <done>
