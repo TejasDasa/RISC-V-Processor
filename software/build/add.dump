@@ -1,5 +1,5 @@
 
-software/build/add.elf:     file format elf32-littleriscv
+build/add.elf:     file format elf32-littleriscv
 
 
 Disassembly of section .text:

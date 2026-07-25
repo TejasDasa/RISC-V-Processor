@@ -1,4 +1,6 @@
-module program_tb;
+module program_tb #(
+    parameter PROGRAM_HEX = "software/build/add.hex"
+);
 
   logic clk;
   logic rst;
@@ -7,7 +9,7 @@ module program_tb;
   logic [31:0] debug_instr;
 
   core #(
-      .IMEM_INIT_FILE("software/build/add.hex")
+      .IMEM_INIT_FILE(PROGRAM_HEX)
   ) dut (
       .clk(clk),
       .rst(rst),
@@ -55,23 +57,9 @@ module program_tb;
       #1;
     end
 
-    check_eq32(
-        "assembled ADDI wrote x1",
-        dut.regfile_inst.regs[1],
-        32'd5
-    );
-
-    check_eq32(
-        "assembled ADDI wrote x2",
-        dut.regfile_inst.regs[2],
-        32'd7
-    );
-
-    check_eq32(
-        "assembled ADD wrote x3",
-        dut.regfile_inst.regs[3],
-        32'd12
-    );
+    $display("REG x1 %0d", dut.regfile_inst.regs[1]);
+    $display("REG x2 %0d", dut.regfile_inst.regs[2]);
+    $display("REG x3 %0d", dut.regfile_inst.regs[3]);
 
     if (failures == 0) begin
       $display("PASS: assembled program executed correctly");

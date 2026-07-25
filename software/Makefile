@@ -3,7 +3,9 @@ ARCH_FLAGS := -march=rv32i -mabi=ilp32
 BUILD_DIR := build
 PROGRAM_DIR := programs
 
-PROGRAM := add
+PROGRAM ?= add
+
+SOURCE := programs/$(PROGRAM).S
 
 ELF := $(BUILD_DIR)/$(PROGRAM).elf
 BIN := $(BUILD_DIR)/$(PROGRAM).bin
