@@ -1,33 +1,30 @@
 ENTRY(_start)
 
-MEMORY
-{
-    RAM (rwx) : ORIGIN = 0x00000000, LENGTH = 4K
-}
-
 SECTIONS
 {
-    . = ORIGIN(RAM);
+    . = 0x00000000;
 
-    .text :
-    {
-        *(.text.start)
+    .text : {
+        *(.text.init)
         *(.text*)
-    } > RAM
+    }
 
-    .rodata :
-    {
+    .rodata : {
         *(.rodata*)
-    } > RAM
+    }
 
-    .data :
-    {
+    .data : {
         *(.data*)
-    } > RAM
+    }
 
-    .bss :
-    {
+    .bss : {
+        . = ALIGN(4);
+        __bss_start = .;
+
         *(.bss*)
         *(COMMON)
-    } > RAM
+
+        . = ALIGN(4);
+        __bss_end = .;
+    }
 }

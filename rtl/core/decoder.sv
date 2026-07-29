@@ -183,6 +183,15 @@ module decoder (
         wb_sel = WB_ALU;
       end
 
+      OPCODE_AUIPC: begin
+        reg_write_en = 1'b1;
+        alu_op       = ALU_ADD;
+        alu_a_sel    = ALU_A_PC;
+        alu_src_imm  = 1'b1;
+        imm_type     = IMM_U;
+        wb_sel       = WB_ALU;
+      end
+
       OPCODE_OP_IMM: begin
         reg_write_en = 1'b1;
         alu_src_imm  = 1'b1;

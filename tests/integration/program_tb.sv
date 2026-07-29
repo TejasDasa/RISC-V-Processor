@@ -40,6 +40,8 @@ module program_tb #(
     forever #5 clk = ~clk;
   end
 
+  
+
   initial begin
     failures = 0;
     rst = 1'b1;
@@ -52,10 +54,12 @@ module program_tb #(
     rst = 1'b0;
 
     // Three useful instructions, followed by an infinite JAL loop.
-    repeat (8) begin
+    repeat (50) begin
       @(posedge clk);
       #1;
     end
+
+    
 
     $display("REG x1 %0d", dut.regfile_inst.regs[1]);
     $display("REG x2 %0d", dut.regfile_inst.regs[2]);

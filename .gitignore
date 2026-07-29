@@ -1,3 +1,4 @@
 obj_dir/
 verible*
 logs/
+software/build/

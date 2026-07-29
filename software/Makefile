@@ -1,41 +1,67 @@
-TOOLCHAIN := riscv64-unknown-elf
-ARCH_FLAGS := -march=rv32i -mabi=ilp32
+PROGRAM ?= simple
+
 BUILD_DIR := build
 PROGRAM_DIR := programs
 
-PROGRAM ?= add
+.DEFAULT_GOAL := all
 
-SOURCE := programs/$(PROGRAM).S
+CC := riscv64-unknown-elf-gcc
+OBJCOPY := riscv64-unknown-elf-objcopy
+OBJDUMP := riscv64-unknown-elf-objdump
+
+ARCH_FLAGS := -march=rv32i -mabi=ilp32
+
+CFLAGS := $(ARCH_FLAGS) \
+          -O0 \
+          -ffreestanding \
+          -fno-builtin \
+          -Wall \
+          -Wextra
+
+LDFLAGS := $(ARCH_FLAGS) \
+           -nostdlib \
+           -nostartfiles \
+           -T linker.ld
 
 ELF := $(BUILD_DIR)/$(PROGRAM).elf
 BIN := $(BUILD_DIR)/$(PROGRAM).bin
 HEX := $(BUILD_DIR)/$(PROGRAM).hex
 DUMP := $(BUILD_DIR)/$(PROGRAM).dump
 
-.PHONY: all clean
+C_SOURCE := $(PROGRAM_DIR)/$(PROGRAM).c
+S_SOURCE := $(PROGRAM_DIR)/$(PROGRAM).S
 
-all: $(HEX) $(DUMP)
-
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
-
-$(ELF): $(PROGRAM_DIR)/$(PROGRAM).S linker.ld | $(BUILD_DIR)
-	$(TOOLCHAIN)-gcc \
-		$(ARCH_FLAGS) \
-		-nostdlib \
-		-nostartfiles \
-		-T linker.ld \
-		$< \
-		-o $@
+$(ELF):
+	@mkdir -p $(BUILD_DIR)
+	@if [ -f "$(C_SOURCE)" ]; then \
+		echo "Building C program: $(C_SOURCE)"; \
+		$(CC) $(CFLAGS) $(LDFLAGS) \
+			crt0.S \
+			$(C_SOURCE) \
+			-o $(ELF); \
+	elif [ -f "$(S_SOURCE)" ]; then \
+		echo "Building assembly program: $(S_SOURCE)"; \
+		$(CC) $(ARCH_FLAGS) \
+			-nostdlib \
+			-nostartfiles \
+			-T linker.ld \
+			$(S_SOURCE) \
+			-o $(ELF); \
+	else \
+		echo "ERROR: no source found for $(PROGRAM)"; \
+		exit 1; \
+	fi
 
 $(BIN): $(ELF)
-	$(TOOLCHAIN)-objcopy -O binary $< $@
+	$(OBJCOPY) -O binary $(ELF) $(BIN)
 
-$(HEX): $(BIN) bin_to_hex.py
-	python3 bin_to_hex.py $< $@
+$(HEX): $(BIN)
+	python3 bin_to_hex.py $(BIN) $(HEX)
 
 $(DUMP): $(ELF)
-	$(TOOLCHAIN)-objdump -d -M no-aliases $< > $@
+	$(OBJDUMP) -d $(ELF) > $(DUMP)
+
+all: $(HEX) $(DUMP)
 
 clean:
 	rm -rf $(BUILD_DIR)
