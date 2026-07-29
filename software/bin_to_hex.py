@@ -14,10 +14,10 @@ def main() -> None:
 
     data = input_path.read_bytes()
 
-    if len(data) % 4 != 0:
-        raise ValueError(
-            f"Binary size must be a multiple of 4 bytes, got {len(data)}"
-        )
+    padding = (-len(data)) % 4
+
+    if padding:
+        data += bytes(padding)
 
     words = []
 

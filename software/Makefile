@@ -1,9 +1,9 @@
+.DEFAULT_GOAL := all
+
 PROGRAM ?= simple
 
 BUILD_DIR := build
 PROGRAM_DIR := programs
-
-.DEFAULT_GOAL := all
 
 CC := riscv64-unknown-elf-gcc
 OBJCOPY := riscv64-unknown-elf-objcopy
@@ -24,44 +24,66 @@ LDFLAGS := $(ARCH_FLAGS) \
            -T linker.ld
 
 ELF := $(BUILD_DIR)/$(PROGRAM).elf
-BIN := $(BUILD_DIR)/$(PROGRAM).bin
-HEX := $(BUILD_DIR)/$(PROGRAM).hex
 DUMP := $(BUILD_DIR)/$(PROGRAM).dump
+
+IMEM_BIN := $(BUILD_DIR)/$(PROGRAM)_imem.bin
+IMEM_HEX := $(BUILD_DIR)/$(PROGRAM)_imem.hex
+
+DMEM_BIN := $(BUILD_DIR)/$(PROGRAM)_dmem.bin
+DMEM_HEX := $(BUILD_DIR)/$(PROGRAM)_dmem.hex
 
 C_SOURCE := $(PROGRAM_DIR)/$(PROGRAM).c
 S_SOURCE := $(PROGRAM_DIR)/$(PROGRAM).S
 
-$(ELF):
+all: $(IMEM_HEX) $(DMEM_HEX) $(DUMP)
+
+$(BUILD_DIR)/%.elf: $(PROGRAM_DIR)/%.c crt0.S linker.ld
 	@mkdir -p $(BUILD_DIR)
-	@if [ -f "$(C_SOURCE)" ]; then \
-		echo "Building C program: $(C_SOURCE)"; \
-		$(CC) $(CFLAGS) $(LDFLAGS) \
-			crt0.S \
-			$(C_SOURCE) \
-			-o $(ELF); \
-	elif [ -f "$(S_SOURCE)" ]; then \
-		echo "Building assembly program: $(S_SOURCE)"; \
-		$(CC) $(ARCH_FLAGS) \
-			-nostdlib \
-			-nostartfiles \
-			-T linker.ld \
-			$(S_SOURCE) \
-			-o $(ELF); \
+	$(CC) $(CFLAGS) $(LDFLAGS) \
+		crt0.S \
+		$< \
+		-o $@
+
+$(BUILD_DIR)/%.elf: $(PROGRAM_DIR)/%.S linker.ld
+	@mkdir -p $(BUILD_DIR)
+	$(CC) $(ARCH_FLAGS) \
+		-nostdlib \
+		-nostartfiles \
+		-T linker.ld \
+		$< \
+		-o $@
+
+$(IMEM_BIN): $(ELF)
+	$(OBJCOPY) \
+		-O binary \
+		--only-section=.text \
+		$(ELF) \
+		$(IMEM_BIN)
+
+$(IMEM_HEX): $(IMEM_BIN)
+	python3 bin_to_hex.py $(IMEM_BIN) $(IMEM_HEX)
+
+$(DMEM_BIN): $(ELF)
+	$(OBJCOPY) \
+		-O binary \
+		--only-section=.rodata \
+		--only-section=.srodata \
+		--only-section=.data \
+		--only-section=.sdata \
+		$(ELF) \
+		$(DMEM_BIN)
+
+$(DMEM_HEX): $(DMEM_BIN)
+	@if [ -s "$(DMEM_BIN)" ]; then \
+		python3 bin_to_hex.py $(DMEM_BIN) $(DMEM_HEX); \
 	else \
-		echo "ERROR: no source found for $(PROGRAM)"; \
-		exit 1; \
+		echo "00000000" > $(DMEM_HEX); \
 	fi
-
-$(BIN): $(ELF)
-	$(OBJCOPY) -O binary $(ELF) $(BIN)
-
-$(HEX): $(BIN)
-	python3 bin_to_hex.py $(BIN) $(HEX)
 
 $(DUMP): $(ELF)
 	$(OBJDUMP) -d $(ELF) > $(DUMP)
 
-all: $(HEX) $(DUMP)
-
 clean:
 	rm -rf $(BUILD_DIR)
+
+.PHONY: all clean

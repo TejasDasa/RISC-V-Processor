@@ -2,7 +2,7 @@
 .globl _start
 
 _start:
-    addi sp, x0, 1008
+    la sp, __stack_top
 
     la t0, __bss_start
     la t1, __bss_end

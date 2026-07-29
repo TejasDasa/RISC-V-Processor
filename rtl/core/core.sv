@@ -1,5 +1,6 @@
 module core #(
-    parameter IMEM_INIT_FILE = ""
+    parameter string IMEM_INIT_FILE = "",
+    parameter string DMEM_INIT_FILE = ""
 )(
     input logic clk,
     input logic rst,
@@ -56,10 +57,6 @@ module core #(
   // Data memory
   logic [31:0] dmem_read_data;
 
-  // ------------------------------------------------------------
-  // PC
-  // ------------------------------------------------------------
-
   pc pc_inst (
       .clk(clk),
       .rst(rst),
@@ -68,20 +65,12 @@ module core #(
       .pc(pc_current)
   );
 
-  // ------------------------------------------------------------
-  // Instruction memory
-  // ------------------------------------------------------------
-
   imem #(
     .INIT_FILE(IMEM_INIT_FILE)
   ) imem_inst (
       .addr(pc_current),
       .instr(instr)
   );
-
-  // ------------------------------------------------------------
-  // Decoder
-  // ------------------------------------------------------------
 
   decoder decoder_inst (
       .instr(instr),
@@ -105,10 +94,6 @@ module core #(
       .illegal_instr(illegal_instr)
   );
 
-  // ------------------------------------------------------------
-  // Register file
-  // ------------------------------------------------------------
-
   regfile regfile_inst (
       .clk(clk),
       .we(reg_write_en),
@@ -120,20 +105,13 @@ module core #(
       .rs2_data(rs2_data)
   );
 
-  // ------------------------------------------------------------
-  // Immediate generator
-  // ------------------------------------------------------------
-
   imm_gen imm_gen_inst (
       .instr(instr),
       .imm_type(imm_type),
       .imm(imm)
   );
 
-  // ------------------------------------------------------------
   // ALU input muxes
-  // ------------------------------------------------------------
-
   always_comb begin
     unique case (alu_a_sel)
       ALU_A_RS1:  alu_a = rs1_data;
@@ -145,20 +123,12 @@ module core #(
 
   assign alu_b = alu_src_imm ? imm : rs2_data;
 
-  // ------------------------------------------------------------
-  // ALU
-  // ------------------------------------------------------------
-
   alu alu_inst (
       .a(alu_a),
       .b(alu_b),
       .alu_op(alu_op),
       .result(alu_result)
   );
-
-  // ------------------------------------------------------------
-  // Branch unit
-  // ------------------------------------------------------------
 
   branch_unit branch_unit_inst (
       .rs1_data(rs1_data),
@@ -167,11 +137,9 @@ module core #(
       .taken(branch_taken)
   );
 
-  // ------------------------------------------------------------
-  // Data memory
-  // ------------------------------------------------------------
-
-  dmem dmem_inst (
+  dmem #(
+    .INIT_FILE(DMEM_INIT_FILE)
+  ) dmem_inst (
       .clk(clk),
       .mem_read_en(mem_read_en),
       .mem_write_en(mem_write_en),
@@ -181,24 +149,23 @@ module core #(
   );
 
 
+
+// Next PC logic
   assign pc_plus_4 = pc_current + 32'd4;
 
-always_comb begin
-  if (jump_en && jump_reg_en) begin
-    next_pc = (rs1_data + imm) & 32'hFFFF_FFFE;
-  end else if (jump_en) begin
-    next_pc = pc_current + imm;
-  end else if (branch_taken) begin
-    next_pc = pc_current + imm;
-  end else begin
-    next_pc = pc_plus_4;
+  always_comb begin
+    if (jump_en && jump_reg_en) begin
+      next_pc = (rs1_data + imm) & 32'hFFFF_FFFE;
+    end else if (jump_en) begin
+      next_pc = pc_current + imm;
+    end else if (branch_taken) begin
+      next_pc = pc_current + imm;
+    end else begin
+      next_pc = pc_plus_4;
+    end
   end
-end
 
-  // ------------------------------------------------------------
-  // Writeback mux
-  // ------------------------------------------------------------
-
+// Writeback mux
   always_comb begin
     unique case (wb_sel)
       WB_ALU: rd_data = alu_result;

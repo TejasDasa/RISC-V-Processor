@@ -1,5 +1,6 @@
 module program_tb #(
-    parameter PROGRAM_HEX = "software/build/add.hex"
+    parameter string PROGRAM_HEX = "software/build/add.hex",
+    parameter string PROGRAM_DMEM_HEX = "software/build/add_dmem.hex"
 );
 
   logic clk;
@@ -9,7 +10,8 @@ module program_tb #(
   logic [31:0] debug_instr;
 
   core #(
-      .IMEM_INIT_FILE(PROGRAM_HEX)
+      .IMEM_INIT_FILE(PROGRAM_HEX),
+      .DMEM_INIT_FILE(PROGRAM_DMEM_HEX)
   ) dut (
       .clk(clk),
       .rst(rst),
@@ -40,7 +42,26 @@ module program_tb #(
     forever #5 clk = ~clk;
   end
 
-  
+  //temporary trace
+  /*
+  always_ff @(posedge clk) begin
+    if (!rst) begin
+      $display(
+          "PC=%08h INSTR=%08h alu_a_sel=%0d imm=%08h alu_a=%08h alu_b=%08h alu_result=%08h rd=%0d reg_we=%0b wb=%08h",
+          dut.pc_current,
+          dut.instr,
+          dut.alu_a_sel,
+          dut.imm,
+          dut.alu_a,
+          dut.alu_b,
+          dut.alu_result,
+          dut.rd_addr,
+          dut.reg_write_en,
+          dut.rd_data
+      );
+    end
+  end
+  */
 
   initial begin
     failures = 0;
@@ -53,13 +74,11 @@ module program_tb #(
 
     rst = 1'b0;
 
-    // Three useful instructions, followed by an infinite JAL loop.
-    repeat (50) begin
+    // choose clock cycles
+    repeat (200) begin
       @(posedge clk);
       #1;
     end
-
-    
 
     $display("REG x1 %0d", dut.regfile_inst.regs[1]);
     $display("REG x2 %0d", dut.regfile_inst.regs[2]);
@@ -76,11 +95,7 @@ module program_tb #(
     if (failures == 0) begin
       $display("PASS: assembled program executed correctly");
     end else begin
-      $fatal(
-          1,
-          "FAIL: program_tb had %0d failure(s)",
-          failures
-      );
+      $fatal(1, "FAIL: program_tb had %0d failure(s)", failures);
     end
 
     $finish;

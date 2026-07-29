@@ -1,6 +1,6 @@
-int counter = 17;
+const char message[] = "Hi";
 
 int main(void)
 {
-    return counter;
+    return message[0];
 }

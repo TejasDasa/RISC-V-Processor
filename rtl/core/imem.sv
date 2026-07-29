@@ -1,7 +1,7 @@
 
 module imem #(
     parameter DEPTH = 256,
-    parameter INIT_FILE = ""
+    parameter string INIT_FILE = ""
 ) (
     input  logic [31:0] addr,
     output logic [31:0] instr

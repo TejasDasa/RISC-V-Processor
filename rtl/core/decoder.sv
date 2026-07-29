@@ -190,6 +190,7 @@ module decoder (
         alu_src_imm  = 1'b1;
         imm_type     = IMM_U;
         wb_sel       = WB_ALU;
+        illegal_instr = 1'b0;
       end
 
       OPCODE_OP_IMM: begin
