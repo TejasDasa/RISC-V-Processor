@@ -65,9 +65,8 @@ module core #(
   logic [15:0] load_half;
 
   // Store signals
-  logic [31:0] store_result;
-  logic [7:0] store_byte;
-  logic [15:0] store_half;
+  logic [31:0] store_write_data;
+  logic [3:0]  store_byte_en;
 
   pc pc_inst (
       .clk(clk),
@@ -158,7 +157,8 @@ module core #(
       .mem_read_en(mem_read_en),
       .mem_write_en(mem_write_en),
       .addr(alu_result),
-      .write_data(rs2_data),
+      .byte_en(store_byte_en),
+      .write_data(store_write_data),
       .read_data(dmem_read_data)
   );
 
@@ -225,7 +225,60 @@ module core #(
   end
 
   //store mux
-  
+  always_comb begin
+      store_write_data = 32'b0;
+      store_byte_en    = 4'b0000;
+
+      unique case (store_type)
+          STORE_B: begin
+              unique case (alu_result[1:0])
+                  2'b00: begin
+                      store_write_data = {24'b0, rs2_data[7:0]};
+                      store_byte_en    = 4'b0001;
+                  end
+
+                  2'b01: begin
+                      store_write_data = {16'b0, rs2_data[7:0], 8'b0};
+                      store_byte_en    = 4'b0010;
+                  end
+
+                  2'b10: begin
+                      store_write_data = {8'b0, rs2_data[7:0], 16'b0};
+                      store_byte_en    = 4'b0100;
+                  end
+
+                  2'b11: begin
+                      store_write_data = {rs2_data[7:0], 24'b0};
+                      store_byte_en    = 4'b1000;
+                  end
+              endcase
+          end
+
+          STORE_H: begin
+              unique case (alu_result[1])
+                  1'b0: begin
+                      store_write_data = {16'b0, rs2_data[15:0]};
+                      store_byte_en    = 4'b0011;
+                  end
+
+                  1'b1: begin
+                      store_write_data = {rs2_data[15:0], 16'b0};
+                      store_byte_en    = 4'b1100;
+                  end
+              endcase
+          end
+
+          STORE_W: begin
+              store_write_data = rs2_data;
+              store_byte_en    = 4'b1111;
+          end
+
+          default: begin
+              store_write_data = 32'b0;
+              store_byte_en    = 4'b0000;
+          end
+      endcase
+  end
 
 
   // ------------------------------------------------------------

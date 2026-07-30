@@ -19,10 +19,8 @@ module decoder (
     output logic illegal_instr,
     output logic mem_read_en,
     output logic mem_write_en,
-    output logic mem_to_reg,
     output logic jump_en,
     output logic jump_reg_en,
-    output logic wb_pc4
 );
 
   import riscv_pkg::*;
@@ -51,15 +49,16 @@ module decoder (
     wb_sel = WB_ALU;
     load_type = LOAD_W;
     store_type = STORE_W;
+
     reg_write_en = 1'b0;
     alu_src_imm = 1'b0;
     illegal_instr = 1'b0;
+
     mem_read_en = 1'b0;
     mem_write_en = 1'b0;
-    mem_to_reg = 1'b0;
+
     jump_en = 1'b0;
     jump_reg_en = 1'b0;
-    wb_pc4 = 1'b0;
 
     unique case (opcode)
 
@@ -72,7 +71,6 @@ module decoder (
         reg_write_en = 1'b1;
         mem_read_en = 1'b1;
         mem_write_en = 1'b0;
-        mem_to_reg = 1'b1;
 
         alu_src_imm = 1'b1;
 
@@ -149,7 +147,6 @@ module decoder (
         alu_src_imm = 1'b0;
         mem_read_en = 1'b0;
         mem_write_en = 1'b0;
-        mem_to_reg = 1'b0;
         case (funct3)
           FUNCT3_BEQ: begin
             branch_op = BR_EQ;
@@ -196,11 +193,9 @@ module decoder (
         alu_op = ALU_ADD;
         mem_read_en = 1'b0;
         mem_write_en = 1'b0;
-        mem_to_reg = 1'b0;
         branch_op = BR_NONE;
         jump_en = 1'b1;
         jump_reg_en = 1'b0;
-        wb_pc4 = 1'b1;
         illegal_instr = 1'b0;
         wb_sel = WB_PC4;
       end
@@ -212,11 +207,9 @@ module decoder (
         alu_op = ALU_ADD;
         mem_read_en = 1'b0;
         mem_write_en = 1'b0;
-        mem_to_reg = 1'b0;
         branch_op = BR_NONE;
         jump_en = 1'b1;
         jump_reg_en = 1'b1;
-        wb_pc4 = 1'b1;
         illegal_instr = 1'b0;
         wb_sel = WB_PC4;
       end
