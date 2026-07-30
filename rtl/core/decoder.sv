@@ -11,6 +11,8 @@ module decoder (
     output riscv_pkg::branch_op_t branch_op,
     output riscv_pkg::wb_sel_t wb_sel,
     output riscv_pkg::alu_a_sel_t alu_a_sel,
+    output riscv_pkg::load_type_t load_type,
+    output riscv_pkg::store_type_t store_type,
 
     output logic reg_write_en,
     output logic alu_src_imm,
@@ -47,6 +49,8 @@ module decoder (
     imm_type = IMM_I;
     alu_a_sel = ALU_A_RS1;
     wb_sel = WB_ALU;
+    load_type = LOAD_W;
+    store_type = STORE_W;
     reg_write_en = 1'b0;
     alu_src_imm = 1'b0;
     illegal_instr = 1'b0;
@@ -60,38 +64,82 @@ module decoder (
     unique case (opcode)
 
       OPCODE_LOAD: begin
-        case (funct3)
+        alu_op = ALU_ADD;
+        imm_type = IMM_I;
+        wb_sel = WB_MEM;
+        alu_a_sel = ALU_A_RS1;
+
+        reg_write_en = 1'b1;
+        mem_read_en = 1'b1;
+        mem_write_en = 1'b0;
+        mem_to_reg = 1'b1;
+
+        alu_src_imm = 1'b1;
+
+        unique case (funct3)
           FUNCT3_LW: begin
-            alu_op = ALU_ADD;
-            imm_type = IMM_I;
-            reg_write_en = 1'b1;
-            alu_src_imm = 1'b1;
-            mem_read_en = 1'b1;
-            mem_write_en = 1'b0;
-            mem_to_reg = 1'b1;
+            load_type = LOAD_W;
             illegal_instr = 1'b0;
-            wb_sel = WB_MEM;
           end
 
-          default: illegal_instr = 1'b1;
+          FUNCT3_LBU: begin
+            load_type = LOAD_BU;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_LB: begin
+            load_type = LOAD_B;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_LH: begin
+            load_type = LOAD_H;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_LHU: begin
+            load_type = LOAD_HU;
+            illegal_instr = 1'b0;
+          end
+
+          default: begin
+            illegal_instr = 1'b1;
+            mem_read_en = 1'b0;
+            mem_write_en = 1'b0;
+          end
         endcase
       end
 
       OPCODE_STORE: begin
+        alu_op       = ALU_ADD;
+        alu_a_sel    = ALU_A_RS1;
+        alu_src_imm  = 1'b1;
+        imm_type     = IMM_S;
+
         case (funct3)
           FUNCT3_SW: begin
-            alu_op = ALU_ADD;
-            imm_type = IMM_S;
-            reg_write_en = 1'b0;
-            alu_src_imm = 1'b1;
-            mem_read_en = 1'b0;
+            store_type = STORE_W;
             mem_write_en = 1'b1;
-            mem_to_reg = 1'b0;
             illegal_instr = 1'b0;
-            wb_sel = WB_ALU;
           end
 
-          default: illegal_instr = 1'b1;
+          FUNCT3_SH: begin
+            store_type = STORE_H;
+            mem_write_en = 1'b1;
+            illegal_instr = 1'b0;
+          end
+
+          FUNCT3_SB: begin
+            store_type = STORE_B;
+            mem_write_en = 1'b1;
+            illegal_instr = 1'b0;
+          end
+
+          default: begin
+            illegal_instr = 1'b1;
+            mem_read_en = 1'b0;
+            mem_write_en = 1'b0;
+          end
         endcase
       end
 

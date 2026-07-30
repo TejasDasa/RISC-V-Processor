@@ -29,6 +29,8 @@ module core #(
   branch_op_t branch_op;
   wb_sel_t wb_sel;
   alu_a_sel_t alu_a_sel;
+  load_type_t load_type;
+  store_type_t store_type;
 
   logic reg_write_en;
   logic alu_src_imm;
@@ -57,6 +59,16 @@ module core #(
   // Data memory
   logic [31:0] dmem_read_data;
 
+  // Load signals
+  logic [31:0] load_result;
+  logic [7:0] load_byte;
+  logic [15:0] load_half;
+
+  // Store signals
+  logic [31:0] store_result;
+  logic [7:0] store_byte;
+  logic [15:0] store_half;
+
   pc pc_inst (
       .clk(clk),
       .rst(rst),
@@ -84,6 +96,8 @@ module core #(
       .branch_op(branch_op),
       .wb_sel(wb_sel),
       .alu_a_sel(alu_a_sel),
+      .load_type(load_type),
+      .store_type(store_type),
 
       .reg_write_en(reg_write_en),
       .alu_src_imm(alu_src_imm),
@@ -169,12 +183,50 @@ module core #(
   always_comb begin
     unique case (wb_sel)
       WB_ALU: rd_data = alu_result;
-      WB_MEM: rd_data = dmem_read_data;
+      WB_MEM: rd_data = load_result;
       WB_PC4: rd_data = pc_plus_4;
       WB_CSR: rd_data = 32'd0;  // placeholder for later
       default: rd_data = alu_result;
     endcase
   end
+
+// load mux
+  always_comb begin
+    unique case (alu_result[1:0])
+        2'b00: load_byte = dmem_read_data[7:0];
+        2'b01: load_byte = dmem_read_data[15:8];
+        2'b10: load_byte = dmem_read_data[23:16];
+        2'b11: load_byte = dmem_read_data[31:24];
+    endcase
+  end
+
+  always_comb begin
+    unique case (alu_result[1])
+        1'b0: load_half = dmem_read_data[15:0];
+        1'b1: load_half = dmem_read_data[31:16];
+        default: load_half = 16'b0;
+    endcase
+  end
+
+  always_comb begin
+    unique case (load_type)
+        LOAD_W: load_result = dmem_read_data;
+
+        LOAD_BU: load_result = {24'b0, load_byte};
+
+        LOAD_B: load_result = {{24{load_byte[7]}}, load_byte};
+
+        LOAD_H: load_result = {{16{load_half[15]}}, load_half};
+
+        LOAD_HU: load_result = {16'b0, load_half};
+
+        default: load_result = 32'b0;
+    endcase
+  end
+
+  //store mux
+  
+
 
   // ------------------------------------------------------------
   // Debug outputs

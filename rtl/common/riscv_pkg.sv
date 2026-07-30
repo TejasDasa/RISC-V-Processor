@@ -49,6 +49,22 @@ package riscv_pkg;
     ALU_A_ZERO = 2'd2
   } alu_a_sel_t;
 
+  // Load types
+  typedef enum logic [2:0] {
+    LOAD_B,
+    LOAD_BU,
+    LOAD_H,
+    LOAD_HU,
+    LOAD_W
+  } load_type_t;
+
+  // Store types
+  typedef enum logic [1:0] {
+    STORE_B,
+    STORE_H,
+    STORE_W
+  } store_type_t;
+
   // OPCODE Constants
   localparam logic [6:0] OPCODE_LUI = 7'b0110111;
   localparam logic [6:0] OPCODE_AUIPC = 7'b0010111;
@@ -82,8 +98,17 @@ package riscv_pkg;
   localparam logic [6:0] FUNCT7_ADD_SRL = 7'b0000000;
   localparam logic [6:0] FUNCT7_SUB_SRA = 7'b0100000;
 
-  // word access func3 values
-  localparam logic [2:0] FUNCT3_LW = 3'b010;
+  // load func3 values
+  localparam logic [2:0] FUNCT3_LB  = 3'b000;
+  localparam logic [2:0] FUNCT3_LH  = 3'b001;
+  localparam logic [2:0] FUNCT3_LW  = 3'b010;
+  localparam logic [2:0] FUNCT3_LBU = 3'b100;
+  localparam logic [2:0] FUNCT3_LHU = 3'b101;
+
+  // store func3 values
+  localparam logic [2:0] FUNCT3_SB = 3'b000;
+  localparam logic [2:0] FUNCT3_SH = 3'b001;
   localparam logic [2:0] FUNCT3_SW = 3'b010;
+
 
 endpackage
