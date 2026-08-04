@@ -4,6 +4,8 @@ set -e
 rm -rf obj_dir
 mkdir -p logs
 
+LOG_FILE="logs/soc_tb.log"
+
 verilator \
   --binary \
   --timing \
@@ -24,4 +26,15 @@ verilator \
   rtl/soc/soc.sv \
   tests/integration/soc_tb.sv
 
-./obj_dir/Vsoc_tb | tee logs/soc_tb.log
+set +e
+./obj_dir/Vsoc_tb | tee "${LOG_FILE}"
+sim_status=${PIPESTATUS[0]}
+set -e
+
+if [ "${sim_status}" -ne 0 ]; then
+    echo "FAIL: soc_tb"
+    echo "Log: ${LOG_FILE}"
+    exit "${sim_status}"
+fi
+
+echo "PASS: soc_tb"

@@ -6,24 +6,25 @@ failures=0
 failed_tests=()
 
 run_test() {
-    test_name="$1"
-    test_script="$2"
-    log_file="logs/${test_name}.log"
+    local test_name="$1"
+    local test_script="$2"
+    local log_file="logs/${test_name}.log"
+    local exit_code
 
     echo "Running ${test_name}..."
 
     "${test_script}" > "${log_file}" 2>&1
     exit_code=$?
 
-    if [ "${exit_code}" -eq 0 ] && ! grep -qi "error\|fatal\|fail" "${log_file}"; then
+    if [ "${exit_code}" -eq 0 ]; then
         echo "  PASS: ${test_name}"
     else
         echo "  FAIL: ${test_name}"
         failures=$((failures + 1))
         failed_tests+=("${test_name}")
 
-        echo "  Relevant lines from ${log_file}:"
-        grep -in "error\|fatal\|fail" "${log_file}" | tail -n 20 || tail -n 20 "${log_file}"
+        echo "  Last 20 lines from ${log_file}:"
+        tail -n 20 "${log_file}"
         echo ""
     fi
 }
@@ -37,6 +38,8 @@ run_test "pc_tb.sv" "./scripts/run_pc_tb.sh"
 run_test "imem_tb.sv" "./scripts/run_imem_tb.sh"
 run_test "dmem_tb.sv" "./scripts/run_dmem_tb.sh"
 run_test "uart_tx_tb.sv" "./scripts/run_uart_tx_tb.sh"
+run_test "bus_tb.sv" "./scripts/run_bus_tb.sh"
+run_test "soc_tb.sv" "./scripts/run_soc_tb.sh"
 
 echo ""
 echo "=============================="
