@@ -36,6 +36,7 @@ run_test "decoder_tb.sv" "./scripts/run_decoder_tb.sh"
 run_test "pc_tb.sv" "./scripts/run_pc_tb.sh"
 run_test "imem_tb.sv" "./scripts/run_imem_tb.sh"
 run_test "dmem_tb.sv" "./scripts/run_dmem_tb.sh"
+run_test "uart_tx_tb.sv" "./scripts/run_uart_tx_tb.sh"
 
 echo ""
 echo "=============================="

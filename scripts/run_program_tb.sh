@@ -45,7 +45,9 @@ verilator \
   rtl/core/alu.sv \
   rtl/core/branch_unit.sv \
   rtl/core/dmem.sv \
+  rtl/soc/bus.sv \
   rtl/core/core.sv \
+  rtl/soc/soc.sv \
   tests/integration/program_tb.sv
 
 set +e

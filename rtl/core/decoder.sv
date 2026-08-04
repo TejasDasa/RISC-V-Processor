@@ -68,7 +68,6 @@ module decoder (
         wb_sel = WB_MEM;
         alu_a_sel = ALU_A_RS1;
 
-        reg_write_en = 1'b1;
         mem_read_en = 1'b1;
         mem_write_en = 1'b0;
 
@@ -77,26 +76,31 @@ module decoder (
         unique case (funct3)
           FUNCT3_LW: begin
             load_type = LOAD_W;
+            reg_write_en = 1'b1;
             illegal_instr = 1'b0;
           end
 
           FUNCT3_LBU: begin
             load_type = LOAD_BU;
+            reg_write_en = 1'b1;
             illegal_instr = 1'b0;
           end
 
           FUNCT3_LB: begin
             load_type = LOAD_B;
+            reg_write_en = 1'b1;
             illegal_instr = 1'b0;
           end
 
           FUNCT3_LH: begin
             load_type = LOAD_H;
+            reg_write_en = 1'b1;
             illegal_instr = 1'b0;
           end
 
           FUNCT3_LHU: begin
             load_type = LOAD_HU;
+            reg_write_en = 1'b1;
             illegal_instr = 1'b0;
           end
 
@@ -104,6 +108,7 @@ module decoder (
             illegal_instr = 1'b1;
             mem_read_en = 1'b0;
             mem_write_en = 1'b0;
+            reg_write_en = 1'b0;
           end
         endcase
       end

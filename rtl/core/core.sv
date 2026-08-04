@@ -4,12 +4,21 @@ module core #(
 )(
     input logic clk,
     input logic rst,
+    input logic [31:0] bus_read_data,
 
     output logic [31:0] debug_pc,
-    output logic [31:0] debug_instr
+    output logic [31:0] debug_instr,
+
+    output logic [31:0] bus_addr,
+    output logic bus_read_en,
+    output logic bus_write_en,
+    output logic [31:0] bus_write_data,
+    output logic [3:0] bus_byte_en
 );
 
   import riscv_pkg::*;
+
+  localparam logic [31:0] UART_TX_ADDR = 32'h1000_0000;
 
   // PC / instruction path
   logic [31:0] pc_current;
@@ -55,9 +64,6 @@ module core #(
 
   // Branch
   logic branch_taken;
-
-  // Data memory
-  logic [31:0] dmem_read_data;
 
   // Load signals
   logic [31:0] load_result;
@@ -150,20 +156,6 @@ module core #(
       .taken(branch_taken)
   );
 
-  dmem #(
-    .INIT_FILE(DMEM_INIT_FILE)
-  ) dmem_inst (
-      .clk(clk),
-      .mem_read_en(mem_read_en),
-      .mem_write_en(mem_write_en),
-      .addr(alu_result),
-      .byte_en(store_byte_en),
-      .write_data(store_write_data),
-      .read_data(dmem_read_data)
-  );
-
-
-
 // Next PC logic
   assign pc_plus_4 = pc_current + 32'd4;
 
@@ -193,24 +185,24 @@ module core #(
 // load mux
   always_comb begin
     unique case (alu_result[1:0])
-        2'b00: load_byte = dmem_read_data[7:0];
-        2'b01: load_byte = dmem_read_data[15:8];
-        2'b10: load_byte = dmem_read_data[23:16];
-        2'b11: load_byte = dmem_read_data[31:24];
+        2'b00: load_byte = bus_read_data[7:0];
+        2'b01: load_byte = bus_read_data[15:8];
+        2'b10: load_byte = bus_read_data[23:16];
+        2'b11: load_byte = bus_read_data[31:24];
     endcase
   end
 
   always_comb begin
     unique case (alu_result[1])
-        1'b0: load_half = dmem_read_data[15:0];
-        1'b1: load_half = dmem_read_data[31:16];
+        1'b0: load_half = bus_read_data[15:0];
+        1'b1: load_half = bus_read_data[31:16];
         default: load_half = 16'b0;
     endcase
   end
 
   always_comb begin
     unique case (load_type)
-        LOAD_W: load_result = dmem_read_data;
+        LOAD_W: load_result = bus_read_data;
 
         LOAD_BU: load_result = {24'b0, load_byte};
 
@@ -280,6 +272,13 @@ module core #(
       endcase
   end
 
+  // Bus connect
+
+  assign bus_addr = alu_result;
+  assign bus_read_en = mem_read_en;
+  assign bus_write_en = mem_write_en;
+  assign bus_write_data = store_write_data;
+  assign bus_byte_en = store_byte_en;
 
   // ------------------------------------------------------------
   // Debug outputs

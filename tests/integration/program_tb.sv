@@ -9,14 +9,19 @@ module program_tb #(
   logic [31:0] debug_pc;
   logic [31:0] debug_instr;
 
-  core #(
+  logic uart_tx_valid;
+  logic [7:0] uart_tx_data;
+
+  soc #(
       .IMEM_INIT_FILE(PROGRAM_HEX),
       .DMEM_INIT_FILE(PROGRAM_DMEM_HEX)
   ) dut (
-      .clk(clk),
-      .rst(rst),
-      .debug_pc(debug_pc),
-      .debug_instr(debug_instr)
+      .clk           (clk),
+      .rst           (rst),
+      .debug_pc      (debug_pc),
+      .debug_instr   (debug_instr),
+      .uart_tx_valid (uart_tx_valid),
+      .uart_tx_data  (uart_tx_data)
   );
 
   int failures;
@@ -40,6 +45,10 @@ module program_tb #(
   initial begin
     clk = 1'b0;
     forever #5 clk = ~clk;
+  end
+
+  always_ff @(posedge clk) begin
+    if (!rst && uart_tx_valid) $display("UART_TX 0x%02h '%c'", uart_tx_data, uart_tx_data);
   end
 
   //temporary trace
@@ -75,21 +84,26 @@ module program_tb #(
     rst = 1'b0;
 
     // choose clock cycles
-    repeat (200) begin
+    repeat (2000) begin
       @(posedge clk);
       #1;
     end
 
-    $display("REG x1 %0d", dut.regfile_inst.regs[1]);
-    $display("REG x2 %0d", dut.regfile_inst.regs[2]);
-    $display("REG x3 %0d", dut.regfile_inst.regs[3]);
-    $display("REG x4 %0d", dut.regfile_inst.regs[4]);
-    $display("REG x5 %0d", dut.regfile_inst.regs[5]);
-    $display("REG x6 %0d", dut.regfile_inst.regs[6]);
-    $display("REG x7 %0d", dut.regfile_inst.regs[7]);
-    $display("REG x8 %0d", dut.regfile_inst.regs[8]);
-    $display("REG x9 %0d", dut.regfile_inst.regs[9]);
-    $display("REG x10 %0d", dut.regfile_inst.regs[10]);
+    $display(
+      "HALVES WORD = %08h",
+      dut.bus_inst.dmem_inst.mem[0]
+    );
+
+    $display("REG x1 %0d", dut.core_inst.regfile_inst.regs[1]);
+    $display("REG x2 %0d", dut.core_inst.regfile_inst.regs[2]);
+    $display("REG x3 %0d", dut.core_inst.regfile_inst.regs[3]);
+    $display("REG x4 %0d", dut.core_inst.regfile_inst.regs[4]);
+    $display("REG x5 %0d", dut.core_inst.regfile_inst.regs[5]);
+    $display("REG x6 %0d", dut.core_inst.regfile_inst.regs[6]);
+    $display("REG x7 %0d", dut.core_inst.regfile_inst.regs[7]);
+    $display("REG x8 %0d", dut.core_inst.regfile_inst.regs[8]);
+    $display("REG x9 %0d", dut.core_inst.regfile_inst.regs[9]);
+    $display("REG x10 %0d", dut.core_inst.regfile_inst.regs[10]);
 
 
     if (failures == 0) begin
