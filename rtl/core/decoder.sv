@@ -20,7 +20,7 @@ module decoder (
     output logic mem_read_en,
     output logic mem_write_en,
     output logic jump_en,
-    output logic jump_reg_en,
+    output logic jump_reg_en
 );
 
   import riscv_pkg::*;
