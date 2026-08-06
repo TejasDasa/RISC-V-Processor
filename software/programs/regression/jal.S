@@ -2,9 +2,11 @@
 .globl _start
 
 _start:
-    addi x1, x0, 5
+    jal x1, target
+    addi x2, x0, 99
+
+target:
     addi x2, x0, 7
-    add  x3, x1, x2
 
 done:
     jal x0, done

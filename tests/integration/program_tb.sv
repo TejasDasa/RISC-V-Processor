@@ -1,7 +1,18 @@
 module program_tb #(
-    parameter string PROGRAM_HEX = "software/build/add.hex",
-    parameter string PROGRAM_DMEM_HEX = "software/build/add_dmem.hex"
+    parameter string PROGRAM_HEX =
+        "software/build/add_imem.hex",
+
+    parameter string PROGRAM_DMEM_HEX =
+        "software/build/add_dmem.hex",
+
+    parameter int UART_CLOCK_HZ  = 10,
+    parameter int UART_BAUD_RATE = 2,
+
+    parameter int RUN_CYCLES = 10000
 );
+
+  localparam int CLKS_PER_BIT =
+      UART_CLOCK_HZ / UART_BAUD_RATE;
 
   logic clk;
   logic rst;
@@ -9,22 +20,28 @@ module program_tb #(
   logic [31:0] debug_pc;
   logic [31:0] debug_instr;
 
-  logic uart_tx_valid;
-  logic [7:0] uart_tx_data;
-
-  soc #(
-      .IMEM_INIT_FILE(PROGRAM_HEX),
-      .DMEM_INIT_FILE(PROGRAM_DMEM_HEX)
-  ) dut (
-      .clk           (clk),
-      .rst           (rst),
-      .debug_pc      (debug_pc),
-      .debug_instr   (debug_instr),
-      .uart_tx_valid (uart_tx_valid),
-      .uart_tx_data  (uart_tx_data)
-  );
+  logic uart_tx;
+  logic uart_busy;
 
   int failures;
+
+  byte uart_bytes[$];
+
+  soc #(
+      .IMEM_INIT_FILE  (PROGRAM_HEX),
+      .DMEM_INIT_FILE  (PROGRAM_DMEM_HEX),
+      .UART_CLOCK_HZ   (UART_CLOCK_HZ),
+      .UART_BAUD_RATE  (UART_BAUD_RATE)
+  ) dut (
+      .clk         (clk),
+      .rst         (rst),
+
+      .debug_pc    (debug_pc),
+      .debug_instr (debug_instr),
+
+      .uart_tx     (uart_tx),
+      .uart_busy   (uart_busy)
+  );
 
   task automatic check_eq32(
       input string test_name,
@@ -42,74 +59,122 @@ module program_tb #(
     end
   endtask
 
+  task automatic wait_clocks(input int count);
+    repeat (count) begin
+      @(posedge clk);
+      #1;
+    end
+  endtask
+
+  task automatic receive_uart_byte(
+      output logic [7:0] received_byte
+  );
+    received_byte = 8'h00;
+
+    // Falling edge marks the beginning of the start bit.
+    @(negedge uart_tx);
+
+    // Sample near the center of the start bit.
+    wait_clocks(CLKS_PER_BIT / 2);
+
+    if (uart_tx !== 1'b0) begin
+      $error("UART start bit was not low");
+      failures++;
+    end
+
+    // Move to the center of data bit 0.
+    wait_clocks(CLKS_PER_BIT);
+
+    for (int bit_index = 0; bit_index < 8; bit_index++) begin
+      received_byte[bit_index] = uart_tx;
+      wait_clocks(CLKS_PER_BIT);
+    end
+
+    // We should now be in the center of the stop bit.
+    if (uart_tx !== 1'b1) begin
+      $error("UART stop bit was not high");
+      failures++;
+    end
+  endtask
+
   initial begin
     clk = 1'b0;
     forever #5 clk = ~clk;
   end
 
-  always_ff @(posedge clk) begin
-    if (!rst && uart_tx_valid) $display("UART_TX 0x%02h '%c'", uart_tx_data, uart_tx_data);
-  end
-
-  //temporary trace
   /*
-  always_ff @(posedge clk) begin
-    if (!rst) begin
+   * Decode every serialized UART frame in parallel with program execution.
+   */
+  initial begin
+    logic [7:0] received_byte;
+
+    forever begin
+      receive_uart_byte(received_byte);
+      uart_bytes.push_back(received_byte);
+
       $display(
-          "PC=%08h INSTR=%08h alu_a_sel=%0d imm=%08h alu_a=%08h alu_b=%08h alu_result=%08h rd=%0d reg_we=%0b wb=%08h",
-          dut.pc_current,
-          dut.instr,
-          dut.alu_a_sel,
-          dut.imm,
-          dut.alu_a,
-          dut.alu_b,
-          dut.alu_result,
-          dut.rd_addr,
-          dut.reg_write_en,
-          dut.rd_data
-      );
+          "UART_RX 0x%02h '%c'",
+          received_byte,
+          received_byte);
     end
   end
-  */
 
   initial begin
     failures = 0;
-    rst = 1'b1;
+    rst      = 1'b1;
 
     @(posedge clk);
     #1;
 
-    check_eq32("reset PC", debug_pc, 32'd0);
+    check_eq32(
+        "reset PC",
+        debug_pc,
+        32'd0
+    );
 
     rst = 1'b0;
 
-    // choose clock cycles
-    repeat (2000) begin
+    repeat (RUN_CYCLES) begin
       @(posedge clk);
       #1;
     end
 
-    $display(
-      "HALVES WORD = %08h",
-      dut.bus_inst.dmem_inst.mem[0]
-    );
+    /*
+     * Give the UART time to finish the last frame if the CPU wrote near
+     * the end of the run window.
+     */
+    while (uart_busy) begin
+      @(posedge clk);
+      #1;
+    end
 
-    $display("REG x1 %0d", dut.core_inst.regfile_inst.regs[1]);
-    $display("REG x2 %0d", dut.core_inst.regfile_inst.regs[2]);
-    $display("REG x3 %0d", dut.core_inst.regfile_inst.regs[3]);
-    $display("REG x4 %0d", dut.core_inst.regfile_inst.regs[4]);
-    $display("REG x5 %0d", dut.core_inst.regfile_inst.regs[5]);
-    $display("REG x6 %0d", dut.core_inst.regfile_inst.regs[6]);
-    $display("REG x7 %0d", dut.core_inst.regfile_inst.regs[7]);
-    $display("REG x8 %0d", dut.core_inst.regfile_inst.regs[8]);
-    $display("REG x9 %0d", dut.core_inst.regfile_inst.regs[9]);
-    $display("REG x10 %0d", dut.core_inst.regfile_inst.regs[10]);
+    for (int i = 0; i < 32; i++) begin
+      $display(
+          "REG x%0d %0d",
+          i,
+          dut.core_inst.regfile_inst.regs[i]
+      );
+    end
 
+    $display("UART byte count: %0d", uart_bytes.size());
+
+    if (uart_bytes.size() > 0) begin
+      $write("UART text: ");
+
+      foreach (uart_bytes[i]) begin
+        $write("%c", uart_bytes[i]);
+      end
+
+      $write("\n");
+    end
 
     if (failures == 0) begin
       $display("PASS: assembled program executed correctly");
     end else begin
-      $fatal(1, "FAIL: program_tb had %0d failure(s)", failures);
+      $fatal(
+          1,
+          "FAIL: program_tb had %0d failure(s)",
+          failures);
     end
 
     $finish;

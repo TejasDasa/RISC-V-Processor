@@ -4,6 +4,10 @@ from pathlib import Path
 import sys
 
 
+def u32(value: int) -> int:
+    return value & 0xFFFF_FFFF
+
+
 def parse_expected(path: Path) -> dict[str, int]:
     expected: dict[str, int] = {}
 
@@ -56,16 +60,19 @@ def main() -> None:
             failures += 1
             continue
 
-        actual_value = actual[name]
+        actual_value = u32(actual[name])
+        expected_value = u32(expected_value)
 
         if actual_value != expected_value:
             print(
-                f"FAIL: {name}: expected {expected_value}, "
-                f"got {actual_value}"
+                f"FAIL: {name}: expected 0x{expected_value:08x}, "
+                f"got 0x{actual_value:08x}"
             )
             failures += 1
         else:
-            print(f"PASS: {name} = {actual_value}")
+            print(
+                f"PASS: {name} = 0x{actual_value:08x}"
+            )
 
     if failures:
         print(f"\nFAIL: {failures} mismatch(es)")

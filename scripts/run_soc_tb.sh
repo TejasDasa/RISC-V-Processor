@@ -13,6 +13,7 @@ verilator \
   -Wno-fatal \
   --top-module soc_tb \
   rtl/common/riscv_pkg.sv \
+  rtl/common/soc_pkg.sv \
   rtl/core/pc.sv \
   rtl/core/imem.sv \
   rtl/core/decoder.sv \
@@ -20,6 +21,7 @@ verilator \
   rtl/core/imm_gen.sv \
   rtl/core/alu.sv \
   rtl/core/branch_unit.sv \
+  rtl/soc/uart_tx.sv \
   rtl/core/dmem.sv \
   rtl/core/core.sv \
   rtl/soc/bus.sv \

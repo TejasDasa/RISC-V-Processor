@@ -14,8 +14,10 @@ module bus_tb;
 
   logic [31:0] cpu_read_data;
 
-  logic       uart_tx_valid;
-  logic [7:0] uart_tx_data;
+  logic       uart_write_valid;
+  logic [7:0] uart_write_data;
+
+  logic uart_busy;
 
   int failures;
 
@@ -33,8 +35,9 @@ module bus_tb;
 
       .cpu_read_data  (cpu_read_data),
 
-      .uart_tx_valid  (uart_tx_valid),
-      .uart_tx_data   (uart_tx_data)
+      .uart_write_valid  (uart_write_valid),
+      .uart_write_data   (uart_write_data),
+      .uart_busy (uart_busy)
   );
 
   task automatic check_eq32(
@@ -215,13 +218,13 @@ module bus_tb;
 
     check_eq1(
         "UART valid during write",
-        uart_tx_valid,
+        uart_write_valid,
         1'b1
     );
 
     check_eq8(
         "UART data",
-        uart_tx_data,
+        uart_write_data,
         8'h48
     );
 
@@ -235,7 +238,7 @@ module bus_tb;
 
     check_eq1(
         "UART valid after write",
-        uart_tx_valid,
+        uart_write_valid,
         1'b0
     );
 

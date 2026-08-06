@@ -10,6 +10,7 @@ verilator \
   -Wall \
   -Wno-fatal \
   --top-module bus_tb \
+  rtl/common/soc_pkg.sv \
   rtl/core/dmem.sv \
   rtl/soc/bus.sv \
   tests/unit/bus_tb.sv

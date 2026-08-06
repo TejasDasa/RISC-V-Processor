@@ -3,7 +3,8 @@
 PROGRAM ?= simple
 
 BUILD_DIR := build
-PROGRAM_DIR := programs
+PROGRAM_DIR ?= programs
+RUNTIME_DIR := runtime
 
 CC := riscv64-unknown-elf-gcc
 OBJCOPY := riscv64-unknown-elf-objcopy
@@ -11,12 +12,19 @@ OBJDUMP := riscv64-unknown-elf-objdump
 
 ARCH_FLAGS := -march=rv32i -mabi=ilp32
 
+RUNTIME_SOURCES := \
+	$(RUNTIME_DIR)/uart.c
+
+INCLUDE_FLAGS := \
+	-I$(RUNTIME_DIR)
+
 CFLAGS := $(ARCH_FLAGS) \
           -O0 \
           -ffreestanding \
           -fno-builtin \
           -Wall \
-          -Wextra
+          -Wextra \
+          $(INCLUDE_FLAGS)
 
 LDFLAGS := $(ARCH_FLAGS) \
            -nostdlib \
@@ -37,11 +45,12 @@ S_SOURCE := $(PROGRAM_DIR)/$(PROGRAM).S
 
 all: $(IMEM_HEX) $(DMEM_HEX) $(DUMP)
 
-$(BUILD_DIR)/%.elf: $(PROGRAM_DIR)/%.c crt0.S linker.ld
+$(BUILD_DIR)/%.elf: $(PROGRAM_DIR)/%.c $(RUNTIME_SOURCES) crt0.S linker.ld
 	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(LDFLAGS) \
 		crt0.S \
 		$< \
+		$(RUNTIME_SOURCES) \
 		-o $@
 
 $(BUILD_DIR)/%.elf: $(PROGRAM_DIR)/%.S linker.ld

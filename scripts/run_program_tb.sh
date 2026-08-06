@@ -8,7 +8,7 @@ PROGRAM="${1:-add}"
 
 IMEM_HEX_FILE="software/build/${PROGRAM}_imem.hex"
 DMEM_HEX_FILE="software/build/${PROGRAM}_dmem.hex"
-EXPECTED_FILE="software/programs/${PROGRAM}.expected"
+EXPECTED_FILE="${2:-software/programs/${PROGRAM}.expected}"
 LOG_FILE="logs/${PROGRAM}.program.log"
 
 if [ ! -f "${IMEM_HEX_FILE}" ]; then
@@ -37,6 +37,7 @@ verilator \
   -Wno-fatal \
   --top-module program_tb \
   rtl/common/riscv_pkg.sv \
+  rtl/common/soc_pkg.sv \
   rtl/core/pc.sv \
   rtl/core/imem.sv \
   rtl/core/decoder.sv \
@@ -45,6 +46,7 @@ verilator \
   rtl/core/alu.sv \
   rtl/core/branch_unit.sv \
   rtl/core/dmem.sv \
+  rtl/soc/uart_tx.sv \
   rtl/soc/bus.sv \
   rtl/core/core.sv \
   rtl/soc/soc.sv \

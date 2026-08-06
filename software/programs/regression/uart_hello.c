@@ -2,6 +2,6 @@
 
 int main(void)
 {
-    uart_puts("Hello from RISC-V!\n");
+    uart_puts("Hello\n");
     return 0;
 }

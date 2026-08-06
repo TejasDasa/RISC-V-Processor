@@ -1,29 +1,32 @@
 module soc_tb;
 
+  localparam int UART_CLOCK_HZ  = 10;
+  localparam int UART_BAUD_RATE = 2;
+  localparam int CLKS_PER_BIT   = UART_CLOCK_HZ / UART_BAUD_RATE;
+
   logic clk;
   logic rst;
 
   logic [31:0] debug_pc;
   logic [31:0] debug_instr;
 
-  logic       uart_tx_valid;
-  logic [7:0] uart_tx_data;
+  logic uart_tx;
+  logic uart_busy;
 
   int failures;
-  int uart_write_count;
 
   soc #(
       .IMEM_INIT_FILE(""),
-      .DMEM_INIT_FILE("")
+      .DMEM_INIT_FILE(""),
+      .UART_CLOCK_HZ(UART_CLOCK_HZ),
+      .UART_BAUD_RATE(UART_BAUD_RATE)
   ) dut (
-      .clk           (clk),
-      .rst           (rst),
-
-      .debug_pc      (debug_pc),
-      .debug_instr   (debug_instr),
-
-      .uart_tx_valid (uart_tx_valid),
-      .uart_tx_data  (uart_tx_data)
+      .clk         (clk),
+      .rst         (rst),
+      .debug_pc    (debug_pc),
+      .debug_instr (debug_instr),
+      .uart_tx     (uart_tx),
+      .uart_busy   (uart_busy)
   );
 
   task automatic check_eq32(
@@ -42,49 +45,76 @@ module soc_tb;
     end
   endtask
 
+  task automatic check_eq8(
+      input string test_name,
+      input logic [7:0] actual,
+      input logic [7:0] expected
+  );
+    if (actual !== expected) begin
+      $error(
+          "%s failed: expected 0x%02h, got 0x%02h",
+          test_name,
+          expected,
+          actual
+      );
+      failures++;
+    end
+  endtask
+
+  task automatic wait_clocks(input int count);
+    repeat (count) begin
+      @(posedge clk);
+      #1;
+    end
+  endtask
+
+  task automatic receive_uart_byte(
+      output logic [7:0] received_byte
+  );
+    received_byte = 8'h00;
+
+    // Wait for falling edge marking the start bit.
+    @(negedge uart_tx);
+
+    // Move to the middle of the start bit.
+    wait_clocks(CLKS_PER_BIT / 2);
+
+    if (uart_tx !== 1'b0) begin
+      $error("UART start bit was not low");
+      failures++;
+    end
+
+    // Move from middle of start bit to middle of data bit 0.
+    wait_clocks(CLKS_PER_BIT);
+
+    for (int bit_index = 0; bit_index < 8; bit_index++) begin
+      received_byte[bit_index] = uart_tx;
+      wait_clocks(CLKS_PER_BIT);
+    end
+
+    // We are now at the middle of the stop bit.
+    if (uart_tx !== 1'b1) begin
+      $error("UART stop bit was not high");
+      failures++;
+    end
+  endtask
+
   initial begin
     clk = 1'b0;
     forever #5 clk = ~clk;
   end
 
-  always_ff @(posedge clk) begin
-    if (!rst && uart_tx_valid) begin
-      uart_write_count++;
-
-      if (uart_tx_data !== 8'h48) begin
-        $error(
-            "UART data failed: expected 0x48, got 0x%02h",
-            uart_tx_data
-        );
-        failures++;
-      end
-
-      $display(
-          "UART_TX 0x%02h '%c'",
-          uart_tx_data,
-          uart_tx_data
-      );
-    end
-  end
-
   initial begin
-    failures        = 0;
-    uart_write_count = 0;
-    rst             = 1'b1;
+    logic [7:0] received_byte;
+
+    failures = 0;
+    rst      = 1'b1;
 
     /*
-     * Program:
-     *
      * 0x00: lui  x1, 0x10000
-     *       x1 = 0x10000000
-     *
      * 0x04: addi x2, x0, 72
-     *       x2 = ASCII 'H'
-     *
      * 0x08: sb   x2, 0(x1)
-     *
      * 0x0c: jal  x0, 0
-     *       infinite loop
      */
 
     dut.core_inst.imem_inst.mem[0] = 32'h1000_00B7;
@@ -103,16 +133,25 @@ module soc_tb;
 
     rst = 1'b0;
 
-    repeat (12) begin
-      @(posedge clk);
-      #1;
+    // Wait for and decode one serialized UART frame.
+    receive_uart_byte(received_byte);
+
+    check_eq8(
+        "serialized UART byte",
+        received_byte,
+        8'h48
+    );
+
+    // Allow the UART to finish and return to idle.
+    wait_clocks(CLKS_PER_BIT + 2);
+
+    if (uart_busy !== 1'b0) begin
+      $error("UART remained busy after frame completion");
+      failures++;
     end
 
-    if (uart_write_count !== 1) begin
-      $error(
-          "UART write count failed: expected 1, got %0d",
-          uart_write_count
-      );
+    if (uart_tx !== 1'b1) begin
+      $error("UART TX line did not return to idle high");
       failures++;
     end
 
@@ -128,7 +167,6 @@ module soc_tb;
         32'd72
     );
 
-    // The final JAL loops at address 0x0c.
     check_eq32(
         "halt-loop PC",
         debug_pc,
@@ -136,7 +174,11 @@ module soc_tb;
     );
 
     if (failures == 0) begin
-      $display("PASS: SoC routed CPU store to UART");
+      $display(
+          "PASS: SoC serialized UART byte 0x%02h '%c'",
+          received_byte,
+          received_byte
+      );
     end else begin
       $fatal(
           1,

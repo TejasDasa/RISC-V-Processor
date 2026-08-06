@@ -1,6 +1,8 @@
 module soc #(
     parameter string IMEM_INIT_FILE = "",
-    parameter string DMEM_INIT_FILE = ""
+    parameter string DMEM_INIT_FILE = "",
+    parameter int UART_CLOCK_HZ = 10,
+    parameter int UART_BAUD_RATE = 2
 ) (
     input  logic        clk,
     input  logic        rst,
@@ -8,8 +10,8 @@ module soc #(
     output logic [31:0] debug_pc,
     output logic [31:0] debug_instr,
 
-    output logic        uart_tx_valid,
-    output logic [7:0]  uart_tx_data
+    output logic  uart_tx,
+    output logic  uart_busy
 );
 
     logic [31:0] bus_addr;
@@ -18,6 +20,9 @@ module soc #(
     logic [31:0] bus_write_data;
     logic [3:0]  bus_byte_en;
     logic [31:0] bus_read_data;
+    
+    logic uart_write_valid;
+    logic [7:0] uart_write_data;
 
     core #(
         .IMEM_INIT_FILE(IMEM_INIT_FILE)
@@ -50,8 +55,21 @@ module soc #(
 
         .cpu_read_data  (bus_read_data),
 
-        .uart_tx_valid  (uart_tx_valid),
-        .uart_tx_data   (uart_tx_data)
+        .uart_write_valid  (uart_write_valid),
+        .uart_write_data   (uart_write_data),
+        .uart_busy (uart_busy)
+    );
+
+    uart_tx #(
+        .CLOCK_HZ  (UART_CLOCK_HZ),
+        .BAUD_RATE (UART_BAUD_RATE)
+    ) uart_tx_inst (
+        .clk   (clk),
+        .rst   (rst),
+        .valid (uart_write_valid),
+        .data  (uart_write_data),
+        .tx    (uart_tx),
+        .busy  (uart_busy)
     );
 
 endmodule
