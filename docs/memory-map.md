@@ -10,3 +10,6 @@
 
 UART TX data: write byte
 UART status: read word, bit 0 = busy
+
+TIMER_CONTROL bit 0 = enable
+TIMER_CONTROL bit 1 = interrupt enable

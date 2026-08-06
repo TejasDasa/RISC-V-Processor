@@ -23,6 +23,8 @@ module program_tb #(
   logic uart_tx;
   logic uart_busy;
 
+  logic timer_irq;
+
   int failures;
 
   byte uart_bytes[$];
@@ -40,7 +42,9 @@ module program_tb #(
       .debug_instr (debug_instr),
 
       .uart_tx     (uart_tx),
-      .uart_busy   (uart_busy)
+      .uart_busy   (uart_busy),
+
+      .timer_irq (timer_irq)
   );
 
   task automatic check_eq32(
