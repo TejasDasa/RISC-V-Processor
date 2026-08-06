@@ -10,4 +10,6 @@
 
 #define UART_BUSY_MASK    0x00000001u
 
+#define TIMER_COUNT_ADDR  0x10000010u
+
 #endif

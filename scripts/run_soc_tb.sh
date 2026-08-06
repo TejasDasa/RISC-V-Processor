@@ -22,6 +22,7 @@ verilator \
   rtl/core/alu.sv \
   rtl/core/branch_unit.sv \
   rtl/soc/uart_tx.sv \
+  rtl/soc/timer.sv \
   rtl/core/dmem.sv \
   rtl/core/core.sv \
   rtl/soc/bus.sv \

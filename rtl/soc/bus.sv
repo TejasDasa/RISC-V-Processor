@@ -10,6 +10,8 @@ module bus #(
     input  logic [31:0] cpu_write_data,
     input  logic [3:0]  cpu_byte_en,
 
+    input logic [31:0] timer_count,
+
     output logic [31:0] cpu_read_data,
 
     output logic uart_write_valid,
@@ -21,10 +23,14 @@ module bus #(
     logic ram_selected;
     logic uart_data_selected;
     logic uart_status_selected;
+    logic timer_selected;
 
     assign ram_selected = (cpu_addr >= DMEM_BASE) && (cpu_addr < DMEM_END);
+
     assign uart_data_selected   = (cpu_addr == UART_TX_ADDR);
     assign uart_status_selected = (cpu_addr == UART_TX_STATUS);
+
+    assign timer_selected = (cpu_addr == TIMER_COUNT_ADDR);
 
     logic ram_read_en;
     logic ram_write_en;
@@ -56,6 +62,8 @@ module bus #(
             cpu_read_data = ram_read_data;
         end else if (uart_status_selected) begin
             cpu_read_data = {31'b0, uart_busy};
+        end else if (timer_selected) begin
+            cpu_read_data = timer_count;
         end
     end
 
@@ -63,7 +71,7 @@ module bus #(
     logic address_mapped;
 
     assign request_active = cpu_read_en || cpu_write_en;
-    assign address_mapped = ram_selected || uart_data_selected || uart_status_selected;
+    assign address_mapped = ram_selected || uart_data_selected || uart_status_selected || timer_selected;
 
     always_ff @(posedge clk) begin
         if (request_active && !address_mapped) begin

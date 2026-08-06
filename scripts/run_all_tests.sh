@@ -40,6 +40,7 @@ run_test "dmem_tb.sv" "./scripts/run_dmem_tb.sh"
 run_test "uart_tx_tb.sv" "./scripts/run_uart_tx_tb.sh"
 run_test "bus_tb.sv" "./scripts/run_bus_tb.sh"
 run_test "soc_tb.sv" "./scripts/run_soc_tb.sh"
+run_test "timer_tb.sv" "./scripts/run_timer_tb.sh"
 
 echo ""
 echo "=============================="

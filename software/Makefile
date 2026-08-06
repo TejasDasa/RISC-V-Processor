@@ -13,7 +13,8 @@ OBJDUMP := riscv64-unknown-elf-objdump
 ARCH_FLAGS := -march=rv32i -mabi=ilp32
 
 RUNTIME_SOURCES := \
-	$(RUNTIME_DIR)/uart.c
+	$(RUNTIME_DIR)/uart.c \
+	$(RUNTIME_DIR)/timer.c
 
 INCLUDE_FLAGS := \
 	-I$(RUNTIME_DIR)

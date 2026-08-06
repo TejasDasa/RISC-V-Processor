@@ -47,6 +47,7 @@ verilator \
   rtl/core/branch_unit.sv \
   rtl/core/dmem.sv \
   rtl/soc/uart_tx.sv \
+  rtl/soc/timer.sv \
   rtl/soc/bus.sv \
   rtl/core/core.sv \
   rtl/soc/soc.sv \
