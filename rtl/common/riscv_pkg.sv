@@ -14,6 +14,12 @@ package riscv_pkg;
     ALU_SLTU
   } alu_op_t;
 
+  // CSR Operations DEF
+  typedef enum logic [3:0] {
+    CSR_RW,
+    CSR_RS
+   } csr_op_t;
+
   // Imm Type DEF
   typedef enum logic [2:0] {
     IMM_I,
@@ -75,8 +81,9 @@ package riscv_pkg;
   localparam logic [6:0] OPCODE_STORE = 7'b0100011;
   localparam logic [6:0] OPCODE_OP_IMM = 7'b0010011;
   localparam logic [6:0] OPCODE_OP = 7'b0110011;
+  localparam logic [6:0] OPCODE_SYS = 7'b1110011;
 
-  // Branch func3 values
+  // Branch funct3 values
   localparam logic [2:0] FUNCT3_BEQ = 3'b000;
   localparam logic [2:0] FUNCT3_BNE = 3'b001;
   localparam logic [2:0] FUNCT3_BLT = 3'b100;
@@ -84,7 +91,7 @@ package riscv_pkg;
   localparam logic [2:0] FUNCT3_BLTU = 3'b110;
   localparam logic [2:0] FUNCT3_BGEU = 3'b111;
 
-  // ALU related func3 values
+  // ALU related funct3 values
   localparam logic [2:0] FUNCT3_ADD_SUB = 3'b000;
   localparam logic [2:0] FUNCT3_SLL = 3'b001;
   localparam logic [2:0] FUNCT3_SLT = 3'b010;
@@ -94,21 +101,29 @@ package riscv_pkg;
   localparam logic [2:0] FUNCT3_OR = 3'b110;
   localparam logic [2:0] FUNCT3_AND = 3'b111;
 
-  // func7 values
+  // funct7 values
   localparam logic [6:0] FUNCT7_ADD_SRL = 7'b0000000;
   localparam logic [6:0] FUNCT7_SUB_SRA = 7'b0100000;
 
-  // load func3 values
+  // load funct3 values
   localparam logic [2:0] FUNCT3_LB  = 3'b000;
   localparam logic [2:0] FUNCT3_LH  = 3'b001;
   localparam logic [2:0] FUNCT3_LW  = 3'b010;
   localparam logic [2:0] FUNCT3_LBU = 3'b100;
   localparam logic [2:0] FUNCT3_LHU = 3'b101;
 
-  // store func3 values
+  // store funct3 values
   localparam logic [2:0] FUNCT3_SB = 3'b000;
   localparam logic [2:0] FUNCT3_SH = 3'b001;
   localparam logic [2:0] FUNCT3_SW = 3'b010;
 
+  // machine mode funct3
+  localparam logic [2:0] FUNCT3_CSRRW = 3'b001;
+  localparam logic [2:0] FUNCT3_CSRRS = 3'b010;
+  localparam logic [2:0] FUNCT3_CSRRC = 3'b011;
+
+  localparam logic [2:0] FUNCT3_CSRRWI = 3'b101;
+  localparam logic [2:0] FUNCT3_CSRRSI = 3'b110;
+  localparam logic [2:0] FUNCT3_CSRRCI = 3'b111;
 
 endpackage

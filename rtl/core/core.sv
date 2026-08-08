@@ -1,6 +1,5 @@
 module core #(
-    parameter string IMEM_INIT_FILE = "",
-    parameter string DMEM_INIT_FILE = ""
+    parameter string IMEM_INIT_FILE = ""
 )(
     input logic clk,
     input logic rst,
@@ -17,8 +16,6 @@ module core #(
 );
 
   import riscv_pkg::*;
-
-  localparam logic [31:0] UART_TX_ADDR = 32'h1000_0000;
 
   // PC / instruction path
   logic [31:0] pc_current;
@@ -74,6 +71,23 @@ module core #(
   logic [31:0] store_write_data;
   logic [3:0]  store_byte_en;
 
+  // CSR signals
+    csr_op_t csr_op;
+
+    logic        csr_write_en;
+    logic        csr_actual_write_en;
+
+    logic [11:0] csr_addr;
+    logic [31:0] csr_write_data;
+    logic [31:0] csr_read_data;
+
+    logic [31:0] mtvec;
+    logic [31:0] mepc;
+
+    logic global_irq_enable;
+    logic timer_irq_enable;
+    logic timer_irq_pending;
+
   pc pc_inst (
       .clk(clk),
       .rst(rst),
@@ -97,6 +111,7 @@ module core #(
       .rs2_addr(rs2_addr),
 
       .alu_op(alu_op),
+      .csr_op(csr_op),
       .imm_type(imm_type),
       .branch_op(branch_op),
       .wb_sel(wb_sel),
@@ -110,6 +125,7 @@ module core #(
       .mem_write_en(mem_write_en),
       .jump_en(jump_en),
       .jump_reg_en(jump_reg_en),
+      .csr_write_en(csr_write_en),
       .illegal_instr(illegal_instr)
   );
 
@@ -177,7 +193,7 @@ module core #(
       WB_ALU: rd_data = alu_result;
       WB_MEM: rd_data = load_result;
       WB_PC4: rd_data = pc_plus_4;
-      WB_CSR: rd_data = 32'd0;  // placeholder for later
+      WB_CSR: rd_data = csr_read_data;
       default: rd_data = alu_result;
     endcase
   end
@@ -279,6 +295,42 @@ module core #(
   assign bus_write_en = mem_write_en;
   assign bus_write_data = store_write_data;
   assign bus_byte_en = store_byte_en;
+
+  // CSR stuff
+
+  csr_file csr_file_inst (
+    .clk (clk),
+    .rst (rst),
+    .csr_addr (csr_addr),
+    .csr_write_en (csr_actual_write_en),
+    .csr_write_data (csr_write_data),
+    .csr_read_data (csr_read_data),
+    .timer_irq (timer_irq),
+    .trap_enter (trap_enter),
+    .trap_pc (trap_pc),
+    .trap_cause (trap_cause),
+    .mret (mret),
+    .mtvec (mtvec),
+    .mepc (mepc),
+    .global_irq_enable (global_irq_enable),
+    .timer_irq_enable (timer_irq_enable),
+    .timer_irq_pending (timer_irq_pending)
+  );
+
+  assign csr_addr = instr[31:20];
+
+  always_comb begin
+    unique case (csr_op)
+        CSR_RW: csr_write_data = rs1_data;
+        CSR_RS: csr_write_data = csr_read_data | rs1_data;
+        default: csr_write_data = 32'd0;
+    endcase
+  end
+
+  assign csr_actual_write_en =
+    csr_write_en &&
+    !((csr_op == CSR_RS) && (rs1_addr == 5'd0));
+
 
   // ------------------------------------------------------------
   // Debug outputs

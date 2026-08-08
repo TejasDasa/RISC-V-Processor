@@ -7,6 +7,7 @@ module decoder (
     output logic [4:0] rs2_addr,
 
     output riscv_pkg::alu_op_t   alu_op,
+    output riscv_pkg::csr_op_t csr_op,
     output riscv_pkg::imm_type_t imm_type,
     output riscv_pkg::branch_op_t branch_op,
     output riscv_pkg::wb_sel_t wb_sel,
@@ -20,7 +21,8 @@ module decoder (
     output logic mem_read_en,
     output logic mem_write_en,
     output logic jump_en,
-    output logic jump_reg_en
+    output logic jump_reg_en,
+    output logic csr_write_en
 );
 
   import riscv_pkg::*;
@@ -43,6 +45,7 @@ module decoder (
   always_comb begin
 
     branch_op = BR_NONE;
+    csr_op = CSR_RW;
     alu_op = ALU_ADD;
     imm_type = IMM_I;
     alu_a_sel = ALU_A_RS1;
@@ -60,7 +63,36 @@ module decoder (
     jump_en = 1'b0;
     jump_reg_en = 1'b0;
 
+    csr_write_en = 1'b0;
+
     unique case (opcode)
+
+      OPCODE_SYS: begin
+        wb_sel = WB_CSR;
+
+        unique case (funct3)
+          FUNCT3_CSRRW: begin
+              csr_op = CSR_RW;
+              reg_write_en = 1'b1;
+              csr_write_en = 1'b1;
+              illegal_instr = 1'b0;
+          end
+
+          FUNCT3_CSRRS: begin
+            csr_op = CSR_RS;
+            reg_write_en = 1'b1;
+            csr_write_en = 1'b1;
+            illegal_instr = 1'b0;
+          end
+
+          default: begin
+            illegal_instr = 1'b1;
+            reg_write_en = 1'b0;
+            csr_write_en = 1'b0;
+          end
+        endcase
+      end
+
 
       OPCODE_LOAD: begin
         alu_op = ALU_ADD;

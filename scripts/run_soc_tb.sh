@@ -23,6 +23,7 @@ verilator \
   rtl/core/branch_unit.sv \
   rtl/soc/uart_tx.sv \
   rtl/soc/timer.sv \
+  rtl/soc/interrupt_controller.sv \
   rtl/core/dmem.sv \
   rtl/core/core.sv \
   rtl/soc/bus.sv \

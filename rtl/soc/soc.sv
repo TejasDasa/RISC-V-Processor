@@ -13,7 +13,7 @@ module soc #(
     output logic  uart_tx,
     output logic  uart_busy,
 
-    output logic timer_irq
+    output logic cpu_irq
 );
 
     logic [31:0] bus_addr;
@@ -33,6 +33,8 @@ module soc #(
     logic timer_write_compare_en;
     logic timer_write_control_en;
     logic [31:0] timer_write_data;
+
+    logic timer_irq;
 
     core #(
         .IMEM_INIT_FILE(IMEM_INIT_FILE)
@@ -100,6 +102,11 @@ module soc #(
         .compare (timer_compare),
         .control (timer_control),
         .irq (timer_irq)
+    );
+
+    interrupt_controller interrupt_controller_inst (
+        .timer_irq (timer_irq),
+        .cpu_irq (cpu_irq)
     );
 
 endmodule

@@ -10,7 +10,7 @@ CC := riscv64-unknown-elf-gcc
 OBJCOPY := riscv64-unknown-elf-objcopy
 OBJDUMP := riscv64-unknown-elf-objdump
 
-ARCH_FLAGS := -march=rv32i -mabi=ilp32
+ARCH_FLAGS := -march=rv32i_zicsr -mabi=ilp32
 
 RUNTIME_SOURCES := \
 	$(RUNTIME_DIR)/uart.c \
