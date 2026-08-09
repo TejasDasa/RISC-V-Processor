@@ -23,6 +23,7 @@ module core #(
   logic [31:0] next_pc;
   logic [31:0] pc_plus_4;
   logic [31:0] instr;
+  logic [31:0] normal_next_pc;
 
   logic [31:0] branch_target;
 
@@ -187,18 +188,21 @@ module core #(
   assign pc_plus_4 = pc_current + 32'd4;
 
   always_comb begin
-    if (take_interrupt || ecall || illegal_instr) begin
-      next_pc = mtvec;
-    end else if (mret) begin
-      next_pc = mepc;
+    if (take_interrupt || ecall || illegal_instr) next_pc = mtvec;
+    else next_pc = normal_next_pc;
+  end
+
+  always_comb begin
+    if (mret) begin
+      normal_next_pc = mepc;
     end else if (jump_en && jump_reg_en) begin
-      next_pc = (rs1_data + imm) & 32'hFFFF_FFFE;
+      normal_next_pc = (rs1_data + imm) & 32'hFFFF_FFFE;
     end else if (jump_en) begin
-      next_pc = pc_current + imm;
+      normal_next_pc = pc_current + imm;
     end else if (branch_taken) begin
-      next_pc = pc_current + imm;
+      normal_next_pc = pc_current + imm;
     end else begin
-      next_pc = pc_plus_4;
+      normal_next_pc = pc_plus_4;
     end
   end
 
@@ -337,8 +341,15 @@ module core #(
   assign trap_enter = take_interrupt || ecall || illegal_instr;
   
   always_comb begin
-    if (illegal_instr) trap_pc = pc_current;
-    else trap_pc = pc_plus_4;
+    if (take_interrupt) begin
+      trap_pc = normal_next_pc;
+    end else if (ecall) begin
+      trap_pc = pc_plus_4;
+    end else if (illegal_instr) begin
+      trap_pc = pc_current;
+    end else begin
+      trap_pc = 32'b0;
+    end
   end
 
   always_comb begin

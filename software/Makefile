@@ -14,7 +14,9 @@ ARCH_FLAGS := -march=rv32i_zicsr -mabi=ilp32
 
 RUNTIME_SOURCES := \
 	$(RUNTIME_DIR)/uart.c \
-	$(RUNTIME_DIR)/timer.c
+	$(RUNTIME_DIR)/timer.c \
+	$(RUNTIME_DIR)/trap.c \
+	$(RUNTIME_DIR)/trap_entry.S
 
 INCLUDE_FLAGS := \
 	-I$(RUNTIME_DIR)

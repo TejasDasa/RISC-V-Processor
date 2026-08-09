@@ -1,0 +1,56 @@
+#include <stdint.h>
+
+#include "trap.h"
+#include "timer.h"
+
+#define TIMER_TICK_INTERVAL 1000u
+
+volatile uint32_t system_ticks = 0;
+
+static inline uint32_t read_mcause(void)
+{
+    uint32_t value;
+
+    __asm__ volatile (
+        "csrr %0, mcause"
+        : "=r"(value)
+    );
+
+    return value;
+}
+
+static void timer_interrupt_handler(void)
+{
+    system_ticks++;
+
+    timer_set_compare(
+        timer_get_compare() + TIMER_TICK_INTERVAL
+    );
+}
+
+void trap_handler(void)
+{
+    uint32_t cause = read_mcause();
+
+    if (cause == MCAUSE_MACHINE_TIMER) {
+        timer_interrupt_handler();
+    }
+    else if (cause == MCAUSE_ECALL) {
+        /*
+         * Nothing required yet.
+         * mepc already points after ECALL in your current design.
+         */
+    }
+    else if (cause == MCAUSE_ILLEGAL_INSTR) {
+        /*
+         * Do not return from an illegal instruction yet because
+         * mepc points at the offending instruction.
+         */
+        while (1) {
+        }
+    }
+    else {
+        while (1) {
+        }
+    }
+}
