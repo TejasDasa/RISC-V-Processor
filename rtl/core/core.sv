@@ -4,6 +4,7 @@ module core #(
     input logic clk,
     input logic rst,
     input logic [31:0] bus_read_data,
+    input logic cpu_irq,
 
     output logic [31:0] debug_pc,
     output logic [31:0] debug_instr,
@@ -87,6 +88,14 @@ module core #(
     logic global_irq_enable;
     logic timer_irq_enable;
     logic timer_irq_pending;
+    logic take_interrupt;
+
+    logic        trap_enter;
+    logic [31:0] trap_pc;
+    logic [31:0] trap_cause;
+
+    logic mret;
+    logic ecall;
 
   pc pc_inst (
       .clk(clk),
@@ -126,12 +135,14 @@ module core #(
       .jump_en(jump_en),
       .jump_reg_en(jump_reg_en),
       .csr_write_en(csr_write_en),
+      .mret(mret),
+      .ecall(ecall),
       .illegal_instr(illegal_instr)
   );
 
   regfile regfile_inst (
       .clk(clk),
-      .we(reg_write_en),
+      .we(reg_write_en && !illegal_instr && !ecall),
       .rs1_addr(rs1_addr),
       .rs2_addr(rs2_addr),
       .rd_addr(rd_addr),
@@ -176,7 +187,11 @@ module core #(
   assign pc_plus_4 = pc_current + 32'd4;
 
   always_comb begin
-    if (jump_en && jump_reg_en) begin
+    if (take_interrupt || ecall || illegal_instr) begin
+      next_pc = mtvec;
+    end else if (mret) begin
+      next_pc = mepc;
+    end else if (jump_en && jump_reg_en) begin
       next_pc = (rs1_data + imm) & 32'hFFFF_FFFE;
     end else if (jump_en) begin
       next_pc = pc_current + imm;
@@ -291,8 +306,8 @@ module core #(
   // Bus connect
 
   assign bus_addr = alu_result;
-  assign bus_read_en = mem_read_en;
-  assign bus_write_en = mem_write_en;
+  assign bus_read_en = mem_read_en && !illegal_instr && !ecall;
+  assign bus_write_en = mem_write_en && !illegal_instr && !ecall;
   assign bus_write_data = store_write_data;
   assign bus_byte_en = store_byte_en;
 
@@ -305,7 +320,7 @@ module core #(
     .csr_write_en (csr_actual_write_en),
     .csr_write_data (csr_write_data),
     .csr_read_data (csr_read_data),
-    .timer_irq (timer_irq),
+    .timer_irq (cpu_irq),
     .trap_enter (trap_enter),
     .trap_pc (trap_pc),
     .trap_cause (trap_cause),
@@ -316,6 +331,22 @@ module core #(
     .timer_irq_enable (timer_irq_enable),
     .timer_irq_pending (timer_irq_pending)
   );
+
+  assign take_interrupt = global_irq_enable && timer_irq_enable && timer_irq_pending;
+
+  assign trap_enter = take_interrupt || ecall || illegal_instr;
+  
+  always_comb begin
+    if (illegal_instr) trap_pc = pc_current;
+    else trap_pc = pc_plus_4;
+  end
+
+  always_comb begin
+    trap_cause = 32'b0;
+    if (take_interrupt) trap_cause = 32'h8000_0007;
+    else if (ecall) trap_cause = 32'h0000_000B;
+    else if (illegal_instr) trap_cause = 32'h0000_0002;
+  end
 
   assign csr_addr = instr[31:20];
 

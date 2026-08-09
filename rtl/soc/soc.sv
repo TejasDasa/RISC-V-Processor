@@ -45,6 +45,8 @@ module soc #(
         .debug_pc       (debug_pc),
         .debug_instr    (debug_instr),
 
+        .cpu_irq (cpu_irq),
+
         .bus_addr       (bus_addr),
         .bus_read_en    (bus_read_en),
         .bus_write_en   (bus_write_en),

@@ -22,7 +22,9 @@ module decoder (
     output logic mem_write_en,
     output logic jump_en,
     output logic jump_reg_en,
-    output logic csr_write_en
+    output logic csr_write_en,
+    output logic mret,
+    output logic ecall
 );
 
   import riscv_pkg::*;
@@ -64,33 +66,48 @@ module decoder (
     jump_reg_en = 1'b0;
 
     csr_write_en = 1'b0;
+    mret = 1'b0;
+    ecall = 1'b0;
 
     unique case (opcode)
 
       OPCODE_SYS: begin
-        wb_sel = WB_CSR;
+        if (instr == 32'h3020_0073) begin
+          mret          = 1'b1;
+          reg_write_en  = 1'b0;
+          csr_write_en  = 1'b0;
+          illegal_instr = 1'b0;
+        end else if (instr == 32'h0000_0073) begin
+          ecall         = 1'b1;
+          reg_write_en  = 1'b0;
+          csr_write_en  = 1'b0;
+          illegal_instr = 1'b0;
+        end else begin
+            unique case (funct3)
 
-        unique case (funct3)
-          FUNCT3_CSRRW: begin
-              csr_op = CSR_RW;
-              reg_write_en = 1'b1;
-              csr_write_en = 1'b1;
-              illegal_instr = 1'b0;
-          end
+                FUNCT3_CSRRW: begin
+                    csr_op         = CSR_RW;
+                    wb_sel         = WB_CSR;
+                    csr_write_en   = 1'b1;
+                    reg_write_en   = 1'b1;
+                    illegal_instr  = 1'b0;
+                end
 
-          FUNCT3_CSRRS: begin
-            csr_op = CSR_RS;
-            reg_write_en = 1'b1;
-            csr_write_en = 1'b1;
-            illegal_instr = 1'b0;
-          end
+                FUNCT3_CSRRS: begin
+                    csr_op         = CSR_RS;
+                    wb_sel         = WB_CSR;
+                    csr_write_en   = 1'b1;
+                    reg_write_en   = 1'b1;
+                    illegal_instr  = 1'b0;
+                end
 
-          default: begin
-            illegal_instr = 1'b1;
-            reg_write_en = 1'b0;
-            csr_write_en = 1'b0;
-          end
-        endcase
+                default: begin
+                    csr_write_en   = 1'b0;
+                    reg_write_en   = 1'b0;
+                    illegal_instr  = 1'b1;
+                end
+            endcase
+        end
       end
 
 
