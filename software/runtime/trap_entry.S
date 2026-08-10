@@ -3,7 +3,7 @@
 .extern trap_handler
 
 trap_entry:
-    addi sp, sp, -64
+    addi sp, sp, -128
 
     sw ra,  0(sp)
     sw t0,  4(sp)
@@ -24,7 +24,33 @@ trap_entry:
     sw t5, 56(sp)
     sw t6, 60(sp)
 
+    sw tp, 64(sp)
+    sw gp, 68(sp)
+
+    sw s0,  72(sp)
+    sw s1,  76(sp)
+    sw s2,  80(sp)
+    sw s3,  84(sp)
+    sw s4,  88(sp)
+    sw s5,  92(sp)
+    sw s6,  96(sp)
+    sw s7, 100(sp)
+    sw s8, 104(sp)
+    sw s9, 108(sp)
+    sw s10,112(sp)
+    sw s11,116(sp)
+
+    csrr t0, mepc
+    sw   t0, 120(sp)
+
+    mv a0, sp
+
     call trap_handler
+
+    mv sp, a0
+
+    lw t0, 120(sp)
+    csrw mepc, t0
 
     lw ra,  0(sp)
     lw t0,  4(sp)
@@ -45,6 +71,22 @@ trap_entry:
     lw t5, 56(sp)
     lw t6, 60(sp)
 
-    addi sp, sp, 64
+    lw tp, 64(sp)
+    lw gp, 68(sp)
+
+    lw s0,  72(sp)
+    lw s1,  76(sp)
+    lw s2,  80(sp)
+    lw s3,  84(sp)
+    lw s4,  88(sp)
+    lw s5,  92(sp)
+    lw s6,  96(sp)
+    lw s7, 100(sp)
+    lw s8, 104(sp)
+    lw s9, 108(sp)
+    lw s10,112(sp)
+    lw s11,116(sp)
+
+    addi sp, sp, 128
 
     mret

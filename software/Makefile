@@ -16,7 +16,11 @@ RUNTIME_SOURCES := \
 	$(RUNTIME_DIR)/uart.c \
 	$(RUNTIME_DIR)/timer.c \
 	$(RUNTIME_DIR)/trap.c \
-	$(RUNTIME_DIR)/trap_entry.S
+	$(RUNTIME_DIR)/trap_entry.S \
+	$(RUNTIME_DIR)/task.c \
+	$(RUNTIME_DIR)/context_start.S \
+	$(RUNTIME_DIR)/context_switch.S \
+	$(RUNTIME_DIR)/context_start_preemptive.S
 
 INCLUDE_FLAGS := \
 	-I$(RUNTIME_DIR)

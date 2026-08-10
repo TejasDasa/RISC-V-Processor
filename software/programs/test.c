@@ -1,20 +1,17 @@
 #include <stdint.h>
 
+#include "task.h"
 #include "timer.h"
-#include "trap.h"
+#include "uart.h"
 #include "soc.h"
 
-#define TEST_TICK_INTERVAL 50u
-#define TARGET_TICKS       5u
+#define TICK_INTERVAL 100u
 
-int main(void)
+static uint32_t stack_a[128] __attribute__((aligned(16)));
+static uint32_t stack_b[128] __attribute__((aligned(16)));
+
+static void enable_interrupts(void)
 {
-    /*
-     * Enable machine timer interrupts.
-     *
-     * mie.MTIE    = bit 7
-     * mstatus.MIE = bit 3
-     */
     __asm__ volatile (
         "li t0, 0x80\n"
         "csrs mie, t0\n"
@@ -25,12 +22,46 @@ int main(void)
         :
         : "t0"
     );
+}
 
-    /*
-     * Start the periodic timer.
-     */
+static void task_a(void)
+{
+    while (1) {
+        uart_puts("A\n");
+
+        for (volatile uint32_t i = 0; i < 50u; i++) {
+        }
+    }
+}
+
+static void task_b(void)
+{
+    while (1) {
+        uart_puts("B\n");
+
+        for (volatile uint32_t i = 0; i < 50u; i++) {
+        }
+    }
+}
+
+int main(void)
+{
+    scheduler_init();
+
+    task_create(
+        0,
+        task_a,
+        &stack_a[128]
+    );
+
+    task_create(
+        1,
+        task_b,
+        &stack_b[128]
+    );
+
     timer_set_compare(
-        timer_read() + TEST_TICK_INTERVAL
+        timer_read() + TICK_INTERVAL
     );
 
     timer_set_control(
@@ -38,26 +69,10 @@ int main(void)
         TIMER_IRQ_EN_MASK
     );
 
-    /*
-     * Normal foreground work.
-     *
-     * system_ticks is updated asynchronously
-     * by the timer interrupt handler.
-     */
-    volatile uint32_t work = 0;
+    enable_interrupts();
 
-    while (system_ticks < TARGET_TICKS) {
-        work++;
+    scheduler_start();
+
+    while (1) {
     }
-
-    /*
-     * Stop the timer so we don't keep receiving interrupts
-     * after the test finishes.
-     */
-    timer_disable();
-
-    /*
-     * Return number of interrupts received.
-     */
-    return (int)system_ticks;
 }

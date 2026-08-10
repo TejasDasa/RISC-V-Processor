@@ -2,6 +2,7 @@
 
 #include "trap.h"
 #include "timer.h"
+#include "task.h"
 
 #define TIMER_TICK_INTERVAL 1000u
 
@@ -28,29 +29,21 @@ static void timer_interrupt_handler(void)
     );
 }
 
-void trap_handler(void)
+uint32_t *trap_handler(
+    uint32_t *current_sp
+)
 {
     uint32_t cause = read_mcause();
 
     if (cause == MCAUSE_MACHINE_TIMER) {
-        timer_interrupt_handler();
+        system_ticks++;
+
+        timer_set_compare(
+            timer_get_compare() + TIMER_TICK_INTERVAL
+        );
+
+        return scheduler_tick(current_sp);
     }
-    else if (cause == MCAUSE_ECALL) {
-        /*
-         * Nothing required yet.
-         * mepc already points after ECALL in your current design.
-         */
-    }
-    else if (cause == MCAUSE_ILLEGAL_INSTR) {
-        /*
-         * Do not return from an illegal instruction yet because
-         * mepc points at the offending instruction.
-         */
-        while (1) {
-        }
-    }
-    else {
-        while (1) {
-        }
-    }
+
+    return current_sp;
 }
