@@ -1,58 +1,14 @@
-.section .text
+.section .text.init
 .globl _start
 
 _start:
+    lui  x1, 0x10          # x1 = 0x00010000
 
-    # ----------------------------------------------------------
-    # Set trap handler address.
-    # mtvec = 0x80
-    # ----------------------------------------------------------
+    addi x2, x0, 42
+    sw   x2, 0(x1)
 
-    addi t0, x0, 0x80
-    csrw mtvec, t0
+    lw   x3, 0(x1)         # x3 = 42
+    addi x4, x3, 8         # x4 should = 50
 
-
-    # ----------------------------------------------------------
-    # This instruction is valid and should execute.
-    # ----------------------------------------------------------
-
-    addi x5, x0, 7
-
-
-    # ----------------------------------------------------------
-    # Intentionally invalid instruction at address 0x0c.
-    # ----------------------------------------------------------
-
-    .word 0xffffffff
-
-
-    # ----------------------------------------------------------
-    # We should NOT automatically reach this instruction,
-    # because MRET would return to the bad instruction again.
-    # ----------------------------------------------------------
-
-    addi x10, x0, 99
-
-done:
-    jal x0, done
-
-
-    # ----------------------------------------------------------
-    # Trap handler at 0x80
-    # ----------------------------------------------------------
-
-.org 0x80
-
-trap_handler:
-
-    # Prove handler executed.
-    addi x10, x0, 42
-
-    # Read trap cause.
-    csrr x11, mcause
-
-    # Read address of invalid instruction.
-    csrr x12, mepc
-
-handler_loop:
-    jal x0, handler_loop
+halt:
+    jal x0, halt

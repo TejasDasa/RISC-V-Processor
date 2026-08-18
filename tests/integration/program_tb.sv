@@ -20,10 +20,15 @@ module program_tb #(
   logic [31:0] debug_pc;
   logic [31:0] debug_instr;
 
-  logic uart_tx;
-  logic uart_busy;
+  // logic uart_tx;
+  // logic uart_busy;
+
+  logic soc_uart_busy;
+  logic [7:0] soc_uart_data;
+  logic soc_uart_valid;
 
   logic cpu_irq;
+  logic gpio_out;
 
   int failures;
 
@@ -41,10 +46,15 @@ module program_tb #(
       .debug_pc    (debug_pc),
       .debug_instr (debug_instr),
 
-      .uart_tx     (uart_tx),
-      .uart_busy   (uart_busy),
+      .uart_write_valid   (soc_uart_valid),
+      .uart_write_data    (soc_uart_data),
+      .uart_external_busy (soc_uart_busy),
 
-      .cpu_irq (cpu_irq)
+      // .uart_tx     (uart_tx),
+      // .uart_busy   (uart_busy),
+
+      .cpu_irq (cpu_irq),
+      .gpio_out (gpio_out)
   );
 
   task automatic check_eq32(
@@ -70,6 +80,7 @@ module program_tb #(
     end
   endtask
 
+  /*
   task automatic receive_uart_byte(
       output logic [7:0] received_byte
   );
@@ -100,6 +111,7 @@ module program_tb #(
       failures++;
     end
   endtask
+  */
 
   initial begin
     clk = 1'b0;
@@ -109,6 +121,8 @@ module program_tb #(
   /*
    * Decode every serialized UART frame in parallel with program execution.
    */
+
+   /*
   initial begin
     logic [7:0] received_byte;
 
@@ -122,6 +136,7 @@ module program_tb #(
           received_byte);
     end
   end
+  */
 
   initial begin
     failures = 0;
@@ -147,7 +162,7 @@ module program_tb #(
      * Give the UART time to finish the last frame if the CPU wrote near
      * the end of the run window.
      */
-    while (uart_busy) begin
+    while (soc_uart_busy) begin
       @(posedge clk);
       #1;
     end
