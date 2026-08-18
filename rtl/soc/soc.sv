@@ -10,10 +10,15 @@ module soc #(
     output logic [31:0] debug_pc,
     output logic [31:0] debug_instr,
 
-    output logic  uart_tx,
-    output logic  uart_busy,
+    // output logic  uart_tx,
+    // output logic  uart_busy,
+    output logic  uart_write_valid,
+    output logic [7:0] uart_write_data,
+    input  logic  uart_external_busy,
 
-    output logic cpu_irq
+    output logic cpu_irq,
+    
+    output logic [31:0] gpio_out
 );
 
     logic [31:0] bus_addr;
@@ -22,9 +27,6 @@ module soc #(
     logic [31:0] bus_write_data;
     logic [3:0]  bus_byte_en;
     logic [31:0] bus_read_data;
-    
-    logic uart_write_valid;
-    logic [7:0] uart_write_data;
 
     logic [31:0] timer_count;
     logic [31:0] timer_compare;
@@ -35,6 +37,10 @@ module soc #(
     logic [31:0] timer_write_data;
 
     logic timer_irq;
+
+    logic gpio_write_en;
+    logic [31:0] gpio_write_data;
+    logic [31:0] gpio_value;
 
     core #(
         .IMEM_INIT_FILE(IMEM_INIT_FILE)
@@ -71,7 +77,7 @@ module soc #(
 
         .uart_write_valid  (uart_write_valid),
         .uart_write_data   (uart_write_data),
-        .uart_busy (uart_busy),
+        .uart_busy (uart_external_busy),
 
         .timer_count (timer_count),
         .timer_compare (timer_compare),
@@ -79,9 +85,14 @@ module soc #(
 
         .timer_write_compare_en (timer_write_compare_en),
         .timer_write_control_en (timer_write_control_en),
-        .timer_write_data (timer_write_data)
+        .timer_write_data (timer_write_data),
+
+        .gpio_write_en (gpio_write_en),
+        .gpio_write_data (gpio_write_data),
+        .gpio_read_data (gpio_value)
     );
 
+/*
     uart_tx #(
         .CLOCK_HZ  (UART_CLOCK_HZ),
         .BAUD_RATE (UART_BAUD_RATE)
@@ -93,6 +104,7 @@ module soc #(
         .tx    (uart_tx),
         .busy  (uart_busy)
     );
+*/
 
     timer timer_inst (
         .clk (clk),
@@ -110,5 +122,15 @@ module soc #(
         .timer_irq (timer_irq),
         .cpu_irq (cpu_irq)
     );
+
+    gpio gpio_inst (
+        .clk (clk),
+        .rst (rst),
+        .write_en (gpio_write_en),
+        .write_data (gpio_write_data),
+        .value (gpio_value)
+    );
+
+    assign gpio_out = gpio_value;
 
 endmodule

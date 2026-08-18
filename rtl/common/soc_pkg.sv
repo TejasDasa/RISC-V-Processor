@@ -10,4 +10,6 @@ package soc_pkg;
   localparam logic [31:0] TIMER_COMPARE_ADDR = 32'h1000_0014;
   localparam logic [31:0] TIMER_CONTROL_ADDR = 32'h1000_0018;
 
+  localparam logic [31:0] GPIO_OUT_ADDR = 32'h1000_0030;
+
 endpackage

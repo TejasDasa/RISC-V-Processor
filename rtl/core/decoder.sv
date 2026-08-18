@@ -33,16 +33,12 @@ module decoder (
   logic [2:0] funct3;
   logic [6:0] funct7;
 
-  always_comb begin
-
     assign opcode = instr[6:0];
     assign rd_addr = instr[11:7];
     assign funct3 = instr[14:12];
     assign rs1_addr = instr[19:15];
     assign rs2_addr = instr[24:20];
     assign funct7 = instr[31:25];
-
-  end
 
   always_comb begin
 

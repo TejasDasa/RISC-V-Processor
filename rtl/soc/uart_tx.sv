@@ -31,12 +31,12 @@ typedef enum logic [1:0] {
 uart_state state;
 
 always_ff @(posedge clk) begin
-    if (rst == 1'b1) begin
+    if (rst) begin
         state <= IDLE;
         baud_counter <= '0;
         bit_index <= 3'b0;
         data_reg <= 8'b0;
-    end
+    end else begin
 
     unique case (state)
         IDLE: begin
@@ -87,6 +87,7 @@ always_ff @(posedge clk) begin
             bit_index    <= '0;
         end
     endcase
+    end
 end
 
 always_comb begin

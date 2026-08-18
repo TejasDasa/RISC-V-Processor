@@ -26,7 +26,12 @@ module bus #(
     // Timer write interface
     output logic        timer_write_compare_en,
     output logic        timer_write_control_en,
-    output logic [31:0] timer_write_data
+    output logic [31:0] timer_write_data,
+
+    // GPIO interface
+    output logic gpio_write_en,
+    output logic gpio_write_data,
+    input logic gpio_read_data
 );
 
   import soc_pkg::*;
@@ -42,6 +47,8 @@ module bus #(
   logic timer_count_selected;
   logic timer_compare_selected;
   logic timer_control_selected;
+
+  logic gpio_selected;
 
   assign ram_selected =
       (cpu_addr >= DMEM_BASE) &&
@@ -61,6 +68,8 @@ module bus #(
 
   assign timer_control_selected =
       (cpu_addr == TIMER_CONTROL_ADDR);
+
+assign gpio_selected = (cpu_addr == GPIO_OUT_ADDR);
 
 
   // RAM interface
@@ -113,6 +122,12 @@ module bus #(
       cpu_write_data;
 
 
+    // GPIO interface
+    assign gpio_write_en = cpu_write_en && gpio_selected;
+
+    assign gpio_write_data = cpu_write_data;
+
+
   // CPU read-data mux
 
   always_comb begin
@@ -128,6 +143,8 @@ module bus #(
       cpu_read_data = timer_compare;
     end else if (timer_control_selected) begin
       cpu_read_data = timer_control;
+    end else if (gpio_selected) begin
+        cpu_read_data = gpio_read_data;
     end
   end
 
@@ -146,7 +163,8 @@ module bus #(
       uart_status_selected   ||
       timer_count_selected   ||
       timer_compare_selected ||
-      timer_control_selected;
+      timer_control_selected ||
+      gpio_selected;
 
 
   // Simulation checks
