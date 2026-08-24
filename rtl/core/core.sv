@@ -42,7 +42,7 @@ module core #(
     pc pc_inst (
         .clk     (clk),
         .rst     (rst),
-        .pc_we   (1'b1),
+        .pc_we   (!load_use_hazard),
         .next_pc (pc_next),
         .pc      (pc_current)
     );
@@ -73,6 +73,11 @@ module core #(
             if_id_valid <= 1'b0;
             if_id_pc    <= 32'b0;
             if_id_instr <= 32'h0000_0013;
+        end else if (load_use_hazard) begin
+            // Hold IF/ID contents
+            if_id_valid <= if_id_valid;
+            if_id_pc    <= if_id_pc;
+            if_id_instr <= if_id_instr;
         end else begin
             if_id_valid <= 1'b1;
             if_id_pc    <= pc_current;
@@ -269,6 +274,21 @@ module core #(
             id_ex_ecall         <= 1'b0;
             id_ex_illegal_instr <= 1'b0;
 
+        end else if (load_use_hazard) begin
+            id_ex_valid <= 1'b0;
+
+            id_ex_reg_write_en <= 1'b0;
+            id_ex_mem_read_en  <= 1'b0;
+            id_ex_mem_write_en <= 1'b0;
+
+            id_ex_jump_en      <= 1'b0;
+            id_ex_jump_reg_en  <= 1'b0;
+
+            id_ex_csr_write_en <= 1'b0;
+
+            id_ex_mret          <= 1'b0;
+            id_ex_ecall         <= 1'b0;
+            id_ex_illegal_instr <= 1'b0;
         end else begin
 
             id_ex_valid <= if_id_valid;
@@ -276,8 +296,8 @@ module core #(
             id_ex_pc        <= if_id_pc;
             id_ex_pc_plus_4 <= if_id_pc + 32'd4;
 
-            id_ex_rs1_data <= id_rs1_data;
-            id_ex_rs2_data <= id_rs2_data;
+            id_ex_rs1_data <= id_rs1_data_bypassed;
+            id_ex_rs2_data <= id_rs2_data_bypassed;
             id_ex_imm      <= id_imm;
 
             id_ex_rs1_addr <= id_rs1_addr;
@@ -637,15 +657,24 @@ module core #(
             ex_mem_rd_addr <= id_ex_rd_addr;
 
             ex_mem_reg_write_en <=
+                id_ex_valid &&
+                !id_ex_ecall &&
+                !id_ex_illegal_instr &&
                 id_ex_reg_write_en;
 
             ex_mem_wb_sel <=
                 id_ex_wb_sel;
 
             ex_mem_mem_read_en <=
+                id_ex_valid &&
+                !id_ex_ecall &&
+                !id_ex_illegal_instr &&
                 id_ex_mem_read_en;
 
             ex_mem_mem_write_en <=
+                id_ex_valid &&
+                !id_ex_ecall &&
+                !id_ex_illegal_instr &&
                 id_ex_mem_write_en;
 
             ex_mem_load_type <=
@@ -884,6 +913,26 @@ module core #(
     logic         mem_wb_reg_write_en;
     wb_sel_t      mem_wb_wb_sel;
 
+    logic [31:0] id_rs1_data_bypassed;
+    logic [31:0] id_rs2_data_bypassed;
+
+    always_comb begin
+        id_rs1_data_bypassed = id_rs1_data;
+        id_rs2_data_bypassed = id_rs2_data;
+
+        if (wb_reg_write_en &&
+            (wb_rd_addr != 5'd0) &&
+            (wb_rd_addr == id_rs1_addr)) begin
+            id_rs1_data_bypassed = wb_data;
+        end
+
+        if (wb_reg_write_en &&
+            (wb_rd_addr != 5'd0) &&
+            (wb_rd_addr == id_rs2_addr)) begin
+            id_rs2_data_bypassed = wb_data;
+        end
+    end
+
 
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -964,6 +1013,22 @@ module core #(
         mem_wb_valid &&
         mem_wb_reg_write_en &&
         (mem_wb_rd_addr != 5'd0);
+
+
+    // Load-Use Hazard
+
+    logic load_use_hazard;
+
+    assign load_use_hazard =
+        id_ex_valid &&
+        id_ex_mem_read_en &&
+        (id_ex_rd_addr != 5'd0) &&
+        (
+            (id_ex_rd_addr == id_rs1_addr) ||
+            (id_ex_rd_addr == id_rs2_addr)
+        );
+
+    
 
 
     // ============================================================

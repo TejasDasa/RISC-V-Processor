@@ -16,6 +16,14 @@ COMPARISON_PATTERN = re.compile(
     r"([-+]?(?:0[xX][0-9A-Fa-f]+|0[bB][01]+|0[oO][0-7]+|\d+))\s*$"
 )
 
+REGISTER_PATTERN = re.compile(
+    r"^\s*REG\s+"
+    r"(x\d+)\s*=\s*"
+    r"(0[xX][0-9A-Fa-f]+)"
+    r"(?:\s+\([-+]?\d+\))?"
+    r"\s*$"
+)
+
 
 @dataclass(frozen=True)
 class Expectation:
@@ -84,22 +92,14 @@ def parse_actual(path: Path) -> dict[str, int]:
     actual: dict[str, int] = {}
 
     for raw_line in path.read_text().splitlines():
-        line = raw_line.strip()
+        match = REGISTER_PATTERN.fullmatch(raw_line)
 
-        if not line.startswith("REG "):
+        if match is None:
             continue
 
-        parts = line.split()
+        name, value_text = match.groups()
 
-        if len(parts) != 3:
-            continue
-
-        _, name, value_text = parts
-
-        try:
-            actual[name] = int(value_text, 0)
-        except ValueError:
-            continue
+        actual[name] = int(value_text, 0)
 
     return actual
 
@@ -167,16 +167,21 @@ def main() -> None:
             actual_value = u32(raw_actual)
             expected_value = u32(raw_expected)
             interpretation = "32-bit"
+
         elif comparison_uses_signed_values(expectation):
             actual_value = s32(raw_actual)
             expected_value = raw_expected
             interpretation = "signed"
+
         else:
             actual_value = u32(raw_actual)
             expected_value = u32(raw_expected)
             interpretation = "unsigned"
 
-        passed = comparison_function(actual_value, expected_value)
+        passed = comparison_function(
+            actual_value,
+            expected_value
+        )
 
         expression = (
             f"{expectation.name} "
