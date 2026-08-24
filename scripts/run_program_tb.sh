@@ -35,6 +35,7 @@ verilator \
   -GPROGRAM_DMEM_HEX="\"${DMEM_HEX_FILE}\"" \
   -Wall \
   -Wno-fatal \
+  -DTRACE_RETIRE \
   --top-module program_tb \
   rtl/common/riscv_pkg.sv \
   rtl/common/soc_pkg.sv \
@@ -50,6 +51,8 @@ verilator \
   rtl/soc/uart_tx.sv \
   rtl/soc/timer.sv \
   rtl/soc/gpio.sv \
+  tests/uvm_like/cpu_monitor.sv \
+  tests/uvm_like/cpu_assertions.sv \
   rtl/soc/interrupt_controller.sv \
   rtl/soc/bus.sv \
   rtl/core/core.sv \

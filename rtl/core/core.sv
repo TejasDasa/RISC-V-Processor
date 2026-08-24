@@ -13,10 +13,24 @@ module core #(
     output logic        bus_read_en,
     output logic        bus_write_en,
     output logic [31:0] bus_write_data,
-    output logic [3:0]  bus_byte_en
+    output logic [3:0]  bus_byte_en,
+
+    // Retirement interface
+    output logic        retire_valid,
+    output logic [31:0] retire_pc,
+    output logic [31:0] retire_instr,
+    output logic        retire_reg_write,
+    output logic [4:0]  retire_rd,
+    output logic [31:0] retire_rd_data
 );
 
     import riscv_pkg::*;
+
+    // ============================================================
+    // GLOBAL CONTROL
+    // ============================================================
+
+    logic load_use_hazard;
 
     // ============================================================
     // IF STAGE
@@ -54,7 +68,6 @@ module core #(
         .instr (if_instr)
     );
 
-
     // ============================================================
     // IF / ID PIPELINE REGISTER
     // ============================================================
@@ -68,23 +81,24 @@ module core #(
             if_id_valid <= 1'b0;
             if_id_pc    <= 32'b0;
             if_id_instr <= 32'h0000_0013; // NOP
-        end else if (ex_redirect) begin
-            // Flush younger instruction
+        end
+        else if (ex_redirect) begin
             if_id_valid <= 1'b0;
             if_id_pc    <= 32'b0;
             if_id_instr <= 32'h0000_0013;
-        end else if (load_use_hazard) begin
-            // Hold IF/ID contents
+        end
+        else if (load_use_hazard) begin
+            // Hold IF/ID while PC is stalled.
             if_id_valid <= if_id_valid;
             if_id_pc    <= if_id_pc;
             if_id_instr <= if_id_instr;
-        end else begin
+        end
+        else begin
             if_id_valid <= 1'b1;
             if_id_pc    <= pc_current;
             if_id_instr <= if_instr;
         end
     end
-
 
     // ============================================================
     // ID STAGE
@@ -94,14 +108,14 @@ module core #(
     logic [4:0] id_rs1_addr;
     logic [4:0] id_rs2_addr;
 
-    alu_op_t      id_alu_op;
-    imm_type_t    id_imm_type;
-    branch_op_t   id_branch_op;
-    wb_sel_t      id_wb_sel;
-    alu_a_sel_t   id_alu_a_sel;
-    load_type_t   id_load_type;
-    store_type_t  id_store_type;
-    csr_op_t      id_csr_op;
+    alu_op_t     id_alu_op;
+    imm_type_t   id_imm_type;
+    branch_op_t  id_branch_op;
+    wb_sel_t     id_wb_sel;
+    alu_a_sel_t  id_alu_a_sel;
+    load_type_t  id_load_type;
+    store_type_t id_store_type;
+    csr_op_t     id_csr_op;
 
     logic id_reg_write_en;
     logic id_alu_src_imm;
@@ -152,7 +166,6 @@ module core #(
         .imm      (id_imm)
     );
 
-
     // ============================================================
     // WB SIGNALS
     // ============================================================
@@ -161,15 +174,12 @@ module core #(
     logic [4:0]  wb_rd_addr;
     logic [31:0] wb_data;
 
-
     // ============================================================
     // REGISTER FILE
-    // Reads in ID, writes in WB
     // ============================================================
 
     regfile regfile_inst (
         .clk      (clk),
-
         .we       (wb_reg_write_en),
 
         .rs1_addr (id_rs1_addr),
@@ -182,6 +192,29 @@ module core #(
         .rs2_data (id_rs2_data)
     );
 
+    // ============================================================
+    // WB -> ID BYPASS
+    // ============================================================
+
+    logic [31:0] id_rs1_data_bypassed;
+    logic [31:0] id_rs2_data_bypassed;
+
+    always_comb begin
+        id_rs1_data_bypassed = id_rs1_data;
+        id_rs2_data_bypassed = id_rs2_data;
+
+        if (wb_reg_write_en &&
+            (wb_rd_addr != 5'd0) &&
+            (wb_rd_addr == id_rs1_addr)) begin
+            id_rs1_data_bypassed = wb_data;
+        end
+
+        if (wb_reg_write_en &&
+            (wb_rd_addr != 5'd0) &&
+            (wb_rd_addr == id_rs2_addr)) begin
+            id_rs2_data_bypassed = wb_data;
+        end
+    end
 
     // ============================================================
     // ID / EX PIPELINE REGISTER
@@ -191,6 +224,7 @@ module core #(
 
     logic [31:0] id_ex_pc;
     logic [31:0] id_ex_pc_plus_4;
+    logic [31:0] id_ex_instr;
 
     logic [31:0] id_ex_rs1_data;
     logic [31:0] id_ex_rs2_data;
@@ -225,28 +259,28 @@ module core #(
     logic         id_ex_ecall;
     logic         id_ex_illegal_instr;
 
-
     always_ff @(posedge clk) begin
         if (rst) begin
             id_ex_valid <= 1'b0;
 
-            id_ex_pc          <= 32'b0;
-            id_ex_pc_plus_4   <= 32'b0;
+            id_ex_pc        <= 32'b0;
+            id_ex_pc_plus_4 <= 32'b0;
+            id_ex_instr     <= 32'h0000_0013;
 
-            id_ex_rs1_data    <= 32'b0;
-            id_ex_rs2_data    <= 32'b0;
-            id_ex_imm         <= 32'b0;
+            id_ex_rs1_data <= 32'b0;
+            id_ex_rs2_data <= 32'b0;
+            id_ex_imm      <= 32'b0;
 
-            id_ex_rs1_addr    <= 5'b0;
-            id_ex_rs2_addr    <= 5'b0;
-            id_ex_rd_addr     <= 5'b0;
+            id_ex_rs1_addr <= 5'b0;
+            id_ex_rs2_addr <= 5'b0;
+            id_ex_rd_addr  <= 5'b0;
 
             id_ex_reg_write_en <= 1'b0;
             id_ex_mem_read_en  <= 1'b0;
             id_ex_mem_write_en <= 1'b0;
 
-            id_ex_jump_en      <= 1'b0;
-            id_ex_jump_reg_en  <= 1'b0;
+            id_ex_jump_en     <= 1'b0;
+            id_ex_jump_reg_en <= 1'b0;
 
             id_ex_csr_write_en <= 1'b0;
 
@@ -255,46 +289,49 @@ module core #(
             id_ex_illegal_instr <= 1'b0;
 
             id_ex_csr_addr <= 12'b0;
-
-        end else if (ex_redirect) begin
-
-            // Flush instruction currently in ID
+        end
+        else if (ex_redirect) begin
+            // Flush younger ID instruction.
             id_ex_valid <= 1'b0;
+            id_ex_instr <= 32'h0000_0013;
 
             id_ex_reg_write_en <= 1'b0;
             id_ex_mem_read_en  <= 1'b0;
             id_ex_mem_write_en <= 1'b0;
 
-            id_ex_jump_en      <= 1'b0;
-            id_ex_jump_reg_en  <= 1'b0;
+            id_ex_jump_en     <= 1'b0;
+            id_ex_jump_reg_en <= 1'b0;
 
             id_ex_csr_write_en <= 1'b0;
 
             id_ex_mret          <= 1'b0;
             id_ex_ecall         <= 1'b0;
             id_ex_illegal_instr <= 1'b0;
-
-        end else if (load_use_hazard) begin
+        end
+        else if (load_use_hazard) begin
+            // Bubble inserted into EX.
             id_ex_valid <= 1'b0;
+            id_ex_instr <= 32'h0000_0013;
 
             id_ex_reg_write_en <= 1'b0;
             id_ex_mem_read_en  <= 1'b0;
             id_ex_mem_write_en <= 1'b0;
 
-            id_ex_jump_en      <= 1'b0;
-            id_ex_jump_reg_en  <= 1'b0;
+            id_ex_jump_en     <= 1'b0;
+            id_ex_jump_reg_en <= 1'b0;
 
             id_ex_csr_write_en <= 1'b0;
 
             id_ex_mret          <= 1'b0;
             id_ex_ecall         <= 1'b0;
             id_ex_illegal_instr <= 1'b0;
-        end else begin
-
+        end
+        else begin
             id_ex_valid <= if_id_valid;
 
             id_ex_pc        <= if_id_pc;
             id_ex_pc_plus_4 <= if_id_pc + 32'd4;
+            id_ex_instr     <= if_id_instr;
 
             id_ex_rs1_data <= id_rs1_data_bypassed;
             id_ex_rs2_data <= id_rs2_data_bypassed;
@@ -324,8 +361,7 @@ module core #(
 
             id_ex_csr_op       <= id_csr_op;
             id_ex_csr_write_en <= id_csr_write_en;
-
-            id_ex_csr_addr <= if_id_instr[31:20];
+            id_ex_csr_addr     <= if_id_instr[31:20];
 
             id_ex_mret          <= id_mret;
             id_ex_ecall         <= id_ecall;
@@ -333,6 +369,113 @@ module core #(
         end
     end
 
+    // ============================================================
+    // FORWARDING
+    // ============================================================
+
+    logic [31:0] ex_rs1_forwarded;
+    logic [31:0] ex_rs2_forwarded;
+
+    // EX/MEM signals are declared below but used here as forwarding
+    // sources.
+
+    logic        ex_mem_valid;
+    logic [31:0] ex_mem_pc;
+    logic [31:0] ex_mem_instr;
+
+    logic [31:0] ex_mem_alu_result;
+    logic [31:0] ex_mem_rs2_data;
+    logic [31:0] ex_mem_pc_plus_4;
+    logic [31:0] ex_mem_csr_read_data;
+
+    logic [4:0]  ex_mem_rd_addr;
+
+    logic        ex_mem_reg_write_en;
+    wb_sel_t     ex_mem_wb_sel;
+
+    logic        ex_mem_mem_read_en;
+    logic        ex_mem_mem_write_en;
+
+    load_type_t  ex_mem_load_type;
+    store_type_t ex_mem_store_type;
+
+    logic        mem_wb_valid;
+    logic [31:0] mem_wb_pc;
+    logic [31:0] mem_wb_instr;
+
+    logic [31:0] mem_wb_alu_result;
+    logic [31:0] mem_wb_load_result;
+    logic [31:0] mem_wb_pc_plus_4;
+    logic [31:0] mem_wb_csr_read_data;
+
+    logic [4:0]  mem_wb_rd_addr;
+
+    logic        mem_wb_reg_write_en;
+    wb_sel_t     mem_wb_wb_sel;
+
+    always_comb begin
+        ex_rs1_forwarded = id_ex_rs1_data;
+        ex_rs2_forwarded = id_ex_rs2_data;
+
+        // MEM/WB forwarding
+        if (mem_wb_valid &&
+            mem_wb_reg_write_en &&
+            (mem_wb_rd_addr != 5'd0) &&
+            (mem_wb_rd_addr == id_ex_rs1_addr)) begin
+            ex_rs1_forwarded = wb_data;
+        end
+
+        if (mem_wb_valid &&
+            mem_wb_reg_write_en &&
+            (mem_wb_rd_addr != 5'd0) &&
+            (mem_wb_rd_addr == id_ex_rs2_addr)) begin
+            ex_rs2_forwarded = wb_data;
+        end
+
+        // EX/MEM forwarding takes priority.
+        // Loads are excluded because their data is not ready yet.
+        if (ex_mem_valid &&
+            ex_mem_reg_write_en &&
+            (ex_mem_rd_addr != 5'd0) &&
+            (ex_mem_rd_addr == id_ex_rs1_addr) &&
+            (ex_mem_wb_sel != WB_MEM)) begin
+
+            unique case (ex_mem_wb_sel)
+                WB_ALU:
+                    ex_rs1_forwarded = ex_mem_alu_result;
+
+                WB_PC4:
+                    ex_rs1_forwarded = ex_mem_pc_plus_4;
+
+                WB_CSR:
+                    ex_rs1_forwarded = ex_mem_csr_read_data;
+
+                default:
+                    ex_rs1_forwarded = ex_mem_alu_result;
+            endcase
+        end
+
+        if (ex_mem_valid &&
+            ex_mem_reg_write_en &&
+            (ex_mem_rd_addr != 5'd0) &&
+            (ex_mem_rd_addr == id_ex_rs2_addr) &&
+            (ex_mem_wb_sel != WB_MEM)) begin
+
+            unique case (ex_mem_wb_sel)
+                WB_ALU:
+                    ex_rs2_forwarded = ex_mem_alu_result;
+
+                WB_PC4:
+                    ex_rs2_forwarded = ex_mem_pc_plus_4;
+
+                WB_CSR:
+                    ex_rs2_forwarded = ex_mem_csr_read_data;
+
+                default:
+                    ex_rs2_forwarded = ex_mem_alu_result;
+            endcase
+        end
+    end
 
     // ============================================================
     // EX STAGE
@@ -373,12 +516,11 @@ module core #(
     );
 
     branch_unit branch_unit_inst (
-        .rs1_data  (ex_rs1_forwarded),
-        .rs2_data  (ex_rs2_forwarded),
-        .branch_op  (id_ex_branch_op),
-        .taken      (ex_branch_taken)
+        .rs1_data (ex_rs1_forwarded),
+        .rs2_data (ex_rs2_forwarded),
+        .branch_op (id_ex_branch_op),
+        .taken (ex_branch_taken)
     );
-
 
     // ============================================================
     // CSR FILE
@@ -399,21 +541,19 @@ module core #(
     logic [31:0] trap_pc;
     logic [31:0] trap_cause;
 
-
     always_comb begin
         unique case (id_ex_csr_op)
             CSR_RW:
-                csr_write_data = id_ex_rs1_data;
+                csr_write_data = ex_rs1_forwarded;
 
             CSR_RS:
                 csr_write_data =
-                    csr_read_data | id_ex_rs1_data;
+                    csr_read_data | ex_rs1_forwarded;
 
             default:
                 csr_write_data = 32'd0;
         endcase
     end
-
 
     assign csr_actual_write_en =
         id_ex_valid &&
@@ -423,39 +563,33 @@ module core #(
         !((id_ex_csr_op == CSR_RS) &&
           (id_ex_rs1_addr == 5'd0));
 
-
     csr_file csr_file_inst (
-        .clk                  (clk),
-        .rst                  (rst),
+        .clk               (clk),
+        .rst               (rst),
 
-        .csr_addr             (id_ex_csr_addr),
-        .csr_write_en         (csr_actual_write_en),
-        .csr_write_data       (csr_write_data),
-        .csr_read_data        (csr_read_data),
+        .csr_addr          (id_ex_csr_addr),
+        .csr_write_en      (csr_actual_write_en),
+        .csr_write_data    (csr_write_data),
+        .csr_read_data     (csr_read_data),
 
-        .timer_irq            (cpu_irq),
+        .timer_irq         (cpu_irq),
 
-        .trap_enter           (trap_enter),
-        .trap_pc              (trap_pc),
-        .trap_cause           (trap_cause),
+        .trap_enter        (trap_enter),
+        .trap_pc           (trap_pc),
+        .trap_cause        (trap_cause),
 
-        .mret                 (id_ex_valid && id_ex_mret),
+        .mret              (id_ex_valid && id_ex_mret),
 
-        .mtvec                (mtvec),
-        .mepc                 (mepc),
+        .mtvec             (mtvec),
+        .mepc              (mepc),
 
-        .global_irq_enable    (global_irq_enable),
-        .timer_irq_enable     (timer_irq_enable),
-        .timer_irq_pending    (timer_irq_pending)
+        .global_irq_enable (global_irq_enable),
+        .timer_irq_enable  (timer_irq_enable),
+        .timer_irq_pending (timer_irq_pending)
     );
-
 
     // ============================================================
     // EX REDIRECT / CONTROL FLOW
-    //
-    // NOTE:
-    // Timer interrupts are intentionally deferred for initial
-    // pipeline bring-up.
     // ============================================================
 
     logic ex_take_branch;
@@ -486,7 +620,6 @@ module core #(
         id_ex_valid &&
         (id_ex_ecall || id_ex_illegal_instr);
 
-
     always_comb begin
         ex_redirect    = 1'b0;
         ex_redirect_pc = 32'b0;
@@ -494,83 +627,26 @@ module core #(
         if (ex_take_exception) begin
             ex_redirect    = 1'b1;
             ex_redirect_pc = mtvec;
-
-        end else if (ex_take_mret) begin
+        end
+        else if (ex_take_mret) begin
             ex_redirect    = 1'b1;
             ex_redirect_pc = mepc;
-
-        end else if (ex_take_jalr) begin
-            ex_redirect    = 1'b1;
+        end
+        else if (ex_take_jalr) begin
+            ex_redirect = 1'b1;
             ex_redirect_pc =
                 (ex_rs1_forwarded + id_ex_imm)
                 & 32'hFFFF_FFFE;
-
-        end else if (ex_take_jump) begin
+        end
+        else if (ex_take_jump) begin
             ex_redirect    = 1'b1;
-            ex_redirect_pc =
-                id_ex_pc + id_ex_imm;
-
-        end else if (ex_take_branch) begin
+            ex_redirect_pc = id_ex_pc + id_ex_imm;
+        end
+        else if (ex_take_branch) begin
             ex_redirect    = 1'b1;
-            ex_redirect_pc =
-                id_ex_pc + id_ex_imm;
+            ex_redirect_pc = id_ex_pc + id_ex_imm;
         end
     end
-
-    // ============================================================
-    // FORWARDING
-    // ============================================================
-
-    logic [31:0] ex_rs1_forwarded;
-    logic [31:0] ex_rs2_forwarded;
-
-    always_comb begin
-        ex_rs1_forwarded = id_ex_rs1_data;
-        ex_rs2_forwarded = id_ex_rs2_data;
-
-        // MEM/WB forwarding
-        if (mem_wb_valid &&
-            mem_wb_reg_write_en &&
-            (mem_wb_rd_addr != 5'd0) &&
-            (mem_wb_rd_addr == id_ex_rs1_addr)) begin
-            ex_rs1_forwarded = wb_data;
-        end
-
-        if (mem_wb_valid &&
-            mem_wb_reg_write_en &&
-            (mem_wb_rd_addr != 5'd0) &&
-            (mem_wb_rd_addr == id_ex_rs2_addr)) begin
-            ex_rs2_forwarded = wb_data;
-        end
-
-        // EX/MEM forwarding takes priority because it's newer
-        if (ex_mem_valid &&
-            ex_mem_reg_write_en &&
-            (ex_mem_rd_addr != 5'd0) &&
-            (ex_mem_rd_addr == id_ex_rs1_addr) &&
-            (ex_mem_wb_sel != WB_MEM)) begin
-            ex_rs1_forwarded =
-                (ex_mem_wb_sel == WB_PC4) ?
-                    ex_mem_pc_plus_4 :
-                    (ex_mem_wb_sel == WB_CSR) ?
-                        ex_mem_csr_read_data :
-                        ex_mem_alu_result;
-        end
-
-        if (ex_mem_valid &&
-            ex_mem_reg_write_en &&
-            (ex_mem_rd_addr != 5'd0) &&
-            (ex_mem_rd_addr == id_ex_rs2_addr) &&
-            (ex_mem_wb_sel != WB_MEM)) begin
-            ex_rs2_forwarded =
-                (ex_mem_wb_sel == WB_PC4) ?
-                    ex_mem_pc_plus_4 :
-                    (ex_mem_wb_sel == WB_CSR) ?
-                        ex_mem_csr_read_data :
-                        ex_mem_alu_result;
-        end
-    end
-
 
     // ============================================================
     // EXCEPTION SIGNALS
@@ -585,7 +661,6 @@ module core #(
 
         if (id_ex_ecall)
             trap_pc = id_ex_pc_plus_4;
-
         else if (id_ex_illegal_instr)
             trap_pc = id_ex_pc;
     end
@@ -595,39 +670,20 @@ module core #(
 
         if (id_ex_ecall)
             trap_cause = 32'h0000_000B;
-
         else if (id_ex_illegal_instr)
             trap_cause = 32'h0000_0002;
     end
-
 
     // ============================================================
     // EX / MEM PIPELINE REGISTER
     // ============================================================
 
-    logic        ex_mem_valid;
-
-    logic [31:0] ex_mem_alu_result;
-    logic [31:0] ex_mem_rs2_data;
-    logic [31:0] ex_mem_pc_plus_4;
-
-    logic [31:0] ex_mem_csr_read_data;
-
-    logic [4:0]  ex_mem_rd_addr;
-
-    logic         ex_mem_reg_write_en;
-    wb_sel_t      ex_mem_wb_sel;
-
-    logic         ex_mem_mem_read_en;
-    logic         ex_mem_mem_write_en;
-
-    load_type_t   ex_mem_load_type;
-    store_type_t  ex_mem_store_type;
-
-
     always_ff @(posedge clk) begin
         if (rst) begin
             ex_mem_valid <= 1'b0;
+
+            ex_mem_pc    <= 32'b0;
+            ex_mem_instr <= 32'h0000_0013;
 
             ex_mem_alu_result <= 32'b0;
             ex_mem_rs2_data   <= 32'b0;
@@ -640,13 +696,16 @@ module core #(
             ex_mem_reg_write_en <= 1'b0;
             ex_mem_mem_read_en  <= 1'b0;
             ex_mem_mem_write_en <= 1'b0;
-
-        end else begin
-
+        end
+        else begin
             ex_mem_valid <=
                 id_ex_valid &&
                 !id_ex_ecall &&
                 !id_ex_illegal_instr;
+
+            // Carry instruction identity forward.
+            ex_mem_pc    <= id_ex_pc;
+            ex_mem_instr <= id_ex_instr;
 
             ex_mem_alu_result <= ex_alu_result;
             ex_mem_rs2_data   <= ex_rs2_forwarded;
@@ -662,8 +721,7 @@ module core #(
                 !id_ex_illegal_instr &&
                 id_ex_reg_write_en;
 
-            ex_mem_wb_sel <=
-                id_ex_wb_sel;
+            ex_mem_wb_sel <= id_ex_wb_sel;
 
             ex_mem_mem_read_en <=
                 id_ex_valid &&
@@ -677,14 +735,10 @@ module core #(
                 !id_ex_illegal_instr &&
                 id_ex_mem_write_en;
 
-            ex_mem_load_type <=
-                id_ex_load_type;
-
-            ex_mem_store_type <=
-                id_ex_store_type;
+            ex_mem_load_type  <= id_ex_load_type;
+            ex_mem_store_type <= id_ex_store_type;
         end
     end
-
 
     // ============================================================
     // MEM STAGE
@@ -697,56 +751,30 @@ module core #(
     logic [31:0] mem_store_write_data;
     logic [3:0]  mem_store_byte_en;
 
-
-    // ------------------------------------------------------------
-    // Load byte selection
-    // ------------------------------------------------------------
-
+    // Load byte
     always_comb begin
         unique case (ex_mem_alu_result[1:0])
-            2'b00:
-                mem_load_byte = bus_read_data[7:0];
-
-            2'b01:
-                mem_load_byte = bus_read_data[15:8];
-
-            2'b10:
-                mem_load_byte = bus_read_data[23:16];
-
-            2'b11:
-                mem_load_byte = bus_read_data[31:24];
+            2'b00: mem_load_byte = bus_read_data[7:0];
+            2'b01: mem_load_byte = bus_read_data[15:8];
+            2'b10: mem_load_byte = bus_read_data[23:16];
+            2'b11: mem_load_byte = bus_read_data[31:24];
         endcase
     end
 
-
-    // ------------------------------------------------------------
-    // Load halfword selection
-    // ------------------------------------------------------------
-
+    // Load halfword
     always_comb begin
         unique case (ex_mem_alu_result[1])
-            1'b0:
-                mem_load_half = bus_read_data[15:0];
-
-            1'b1:
-                mem_load_half = bus_read_data[31:16];
-
-            default:
-                mem_load_half = 16'b0;
+            1'b0: mem_load_half = bus_read_data[15:0];
+            1'b1: mem_load_half = bus_read_data[31:16];
+            default: mem_load_half = 16'b0;
         endcase
     end
 
-
-    // ------------------------------------------------------------
     // Load extension
-    // ------------------------------------------------------------
-
     always_comb begin
         unique case (ex_mem_load_type)
-
             LOAD_W:
-                mem_load_result =
-                    bus_read_data;
+                mem_load_result = bus_read_data;
 
             LOAD_BU:
                 mem_load_result =
@@ -754,31 +782,23 @@ module core #(
 
             LOAD_B:
                 mem_load_result =
-                    {{24{mem_load_byte[7]}},
-                     mem_load_byte};
+                    {{24{mem_load_byte[7]}}, mem_load_byte};
 
             LOAD_H:
                 mem_load_result =
-                    {{16{mem_load_half[15]}},
-                     mem_load_half};
+                    {{16{mem_load_half[15]}}, mem_load_half};
 
             LOAD_HU:
                 mem_load_result =
                     {16'b0, mem_load_half};
 
             default:
-                mem_load_result =
-                    32'b0;
+                mem_load_result = 32'b0;
         endcase
     end
 
-
-    // ------------------------------------------------------------
     // Store formatting
-    // ------------------------------------------------------------
-
     always_comb begin
-
         mem_store_write_data = 32'b0;
         mem_store_byte_en    = 4'b0000;
 
@@ -786,94 +806,60 @@ module core #(
 
             STORE_B: begin
                 unique case (ex_mem_alu_result[1:0])
-
                     2'b00: begin
                         mem_store_write_data =
-                            {24'b0,
-                             ex_mem_rs2_data[7:0]};
-
-                        mem_store_byte_en =
-                            4'b0001;
+                            {24'b0, ex_mem_rs2_data[7:0]};
+                        mem_store_byte_en = 4'b0001;
                     end
 
                     2'b01: begin
                         mem_store_write_data =
-                            {16'b0,
-                             ex_mem_rs2_data[7:0],
-                             8'b0};
-
-                        mem_store_byte_en =
-                            4'b0010;
+                            {16'b0, ex_mem_rs2_data[7:0], 8'b0};
+                        mem_store_byte_en = 4'b0010;
                     end
 
                     2'b10: begin
                         mem_store_write_data =
-                            {8'b0,
-                             ex_mem_rs2_data[7:0],
-                             16'b0};
-
-                        mem_store_byte_en =
-                            4'b0100;
+                            {8'b0, ex_mem_rs2_data[7:0], 16'b0};
+                        mem_store_byte_en = 4'b0100;
                     end
 
                     2'b11: begin
                         mem_store_write_data =
-                            {ex_mem_rs2_data[7:0],
-                             24'b0};
-
-                        mem_store_byte_en =
-                            4'b1000;
+                            {ex_mem_rs2_data[7:0], 24'b0};
+                        mem_store_byte_en = 4'b1000;
                     end
-
                 endcase
             end
 
-
             STORE_H: begin
                 unique case (ex_mem_alu_result[1])
-
                     1'b0: begin
                         mem_store_write_data =
-                            {16'b0,
-                             ex_mem_rs2_data[15:0]};
-
-                        mem_store_byte_en =
-                            4'b0011;
+                            {16'b0, ex_mem_rs2_data[15:0]};
+                        mem_store_byte_en = 4'b0011;
                     end
 
                     1'b1: begin
                         mem_store_write_data =
-                            {ex_mem_rs2_data[15:0],
-                             16'b0};
-
-                        mem_store_byte_en =
-                            4'b1100;
+                            {ex_mem_rs2_data[15:0], 16'b0};
+                        mem_store_byte_en = 4'b1100;
                     end
-
                 endcase
             end
 
-
             STORE_W: begin
-                mem_store_write_data =
-                    ex_mem_rs2_data;
-
-                mem_store_byte_en =
-                    4'b1111;
+                mem_store_write_data = ex_mem_rs2_data;
+                mem_store_byte_en    = 4'b1111;
             end
 
-
             default: begin
-                mem_store_write_data =
-                    32'b0;
-
-                mem_store_byte_en =
-                    4'b0000;
+                mem_store_write_data = 32'b0;
+                mem_store_byte_en    = 4'b0000;
             end
 
         endcase
     end
-
 
     // ============================================================
     // BUS OUTPUTS
@@ -896,48 +882,16 @@ module core #(
     assign bus_byte_en =
         mem_store_byte_en;
 
-
     // ============================================================
     // MEM / WB PIPELINE REGISTER
     // ============================================================
 
-    logic        mem_wb_valid;
-
-    logic [31:0] mem_wb_alu_result;
-    logic [31:0] mem_wb_load_result;
-    logic [31:0] mem_wb_pc_plus_4;
-    logic [31:0] mem_wb_csr_read_data;
-
-    logic [4:0]  mem_wb_rd_addr;
-
-    logic         mem_wb_reg_write_en;
-    wb_sel_t      mem_wb_wb_sel;
-
-    logic [31:0] id_rs1_data_bypassed;
-    logic [31:0] id_rs2_data_bypassed;
-
-    always_comb begin
-        id_rs1_data_bypassed = id_rs1_data;
-        id_rs2_data_bypassed = id_rs2_data;
-
-        if (wb_reg_write_en &&
-            (wb_rd_addr != 5'd0) &&
-            (wb_rd_addr == id_rs1_addr)) begin
-            id_rs1_data_bypassed = wb_data;
-        end
-
-        if (wb_reg_write_en &&
-            (wb_rd_addr != 5'd0) &&
-            (wb_rd_addr == id_rs2_addr)) begin
-            id_rs2_data_bypassed = wb_data;
-        end
-    end
-
-
     always_ff @(posedge clk) begin
         if (rst) begin
-
             mem_wb_valid <= 1'b0;
+
+            mem_wb_pc    <= 32'b0;
+            mem_wb_instr <= 32'h0000_0013;
 
             mem_wb_alu_result    <= 32'b0;
             mem_wb_load_result   <= 32'b0;
@@ -947,10 +901,13 @@ module core #(
             mem_wb_rd_addr <= 5'b0;
 
             mem_wb_reg_write_en <= 1'b0;
-
-        end else begin
-
+        end
+        else begin
             mem_wb_valid <= ex_mem_valid;
+
+            // Carry instruction identity into retirement.
+            mem_wb_pc    <= ex_mem_pc;
+            mem_wb_instr <= ex_mem_instr;
 
             mem_wb_alu_result <=
                 ex_mem_alu_result;
@@ -975,7 +932,6 @@ module core #(
         end
     end
 
-
     // ============================================================
     // WB STAGE
     // ============================================================
@@ -984,27 +940,21 @@ module core #(
         unique case (mem_wb_wb_sel)
 
             WB_ALU:
-                wb_data =
-                    mem_wb_alu_result;
+                wb_data = mem_wb_alu_result;
 
             WB_MEM:
-                wb_data =
-                    mem_wb_load_result;
+                wb_data = mem_wb_load_result;
 
             WB_PC4:
-                wb_data =
-                    mem_wb_pc_plus_4;
+                wb_data = mem_wb_pc_plus_4;
 
             WB_CSR:
-                wb_data =
-                    mem_wb_csr_read_data;
+                wb_data = mem_wb_csr_read_data;
 
             default:
-                wb_data =
-                    mem_wb_alu_result;
+                wb_data = mem_wb_alu_result;
         endcase
     end
-
 
     assign wb_rd_addr =
         mem_wb_rd_addr;
@@ -1014,10 +964,9 @@ module core #(
         mem_wb_reg_write_en &&
         (mem_wb_rd_addr != 5'd0);
 
-
-    // Load-Use Hazard
-
-    logic load_use_hazard;
+    // ============================================================
+    // LOAD-USE HAZARD DETECTION
+    // ============================================================
 
     assign load_use_hazard =
         id_ex_valid &&
@@ -1028,8 +977,30 @@ module core #(
             (id_ex_rd_addr == id_rs2_addr)
         );
 
-    
+    // ============================================================
+    // RETIREMENT INTERFACE
+    //
+    // A valid retirement event means the instruction has reached
+    // the architectural commit point of this in-order pipeline.
+    // ============================================================
 
+    assign retire_valid =
+        mem_wb_valid;
+
+    assign retire_pc =
+        mem_wb_pc;
+
+    assign retire_instr =
+        mem_wb_instr;
+
+    assign retire_reg_write =
+        wb_reg_write_en;
+
+    assign retire_rd =
+        wb_rd_addr;
+
+    assign retire_rd_data =
+        wb_data;
 
     // ============================================================
     // DEBUG

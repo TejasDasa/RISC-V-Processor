@@ -49,6 +49,44 @@ module program_tb #(
     );
 
 
+    // CPU Monitor inst
+    cpu_monitor monitor (
+        .clk              (clk),
+        .rst              (rst),
+
+        .retire_valid     (dut.core_inst.retire_valid),
+        .retire_pc        (dut.core_inst.retire_pc),
+        .retire_instr     (dut.core_inst.retire_instr),
+
+        .retire_reg_write (dut.core_inst.retire_reg_write),
+        .retire_rd        (dut.core_inst.retire_rd),
+        .retire_rd_data   (dut.core_inst.retire_rd_data)
+    );
+
+    // Assertions inst
+    cpu_assertions assertions (
+        .clk             (clk),
+        .rst             (rst),
+
+        .load_use_hazard (dut.core_inst.load_use_hazard),
+        .ex_redirect     (dut.core_inst.ex_redirect),
+
+        .pc_current      (dut.core_inst.pc_current),
+
+        .id_ex_valid     (dut.core_inst.id_ex_valid),
+        .ex_mem_valid    (dut.core_inst.ex_mem_valid),
+        .mem_wb_valid    (dut.core_inst.mem_wb_valid),
+
+        .bus_read_en     (dut.core_inst.bus_read_en),
+        .bus_write_en    (dut.core_inst.bus_write_en),
+
+        .wb_reg_write_en (dut.core_inst.wb_reg_write_en),
+        .wb_rd_addr      (dut.core_inst.wb_rd_addr),
+
+        .x0              (dut.core_inst.regfile_inst.regs[0])
+    );
+
+
     // ============================================================
     // CLOCK
     // ============================================================
