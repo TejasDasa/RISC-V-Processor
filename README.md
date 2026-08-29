@@ -1,8 +1,8 @@
 # RV32I Processor and FPGA SoC
 
-A custom RV32I processor and bare-metal SoC written from scratch in SystemVerilog, capable of executing compiled C, handling interrupts and preemptive multitasking, and running on a **Digilent Cora Z7-07S (Zynq-7000)** FPGA.
+A custom RV32I processor and bare-metal SoC written from scratch in SystemVerilog, featuring a **five-stage pipelined CPU**, memory-mapped peripherals, machine-mode interrupts, preemptive multitasking, and deployment on a **Digilent Cora Z7-07S (Zynq-7000)** FPGA.
 
-The project covers the full hardware/software stack: processor microarchitecture, RTL verification, memory-mapped peripherals, bare-metal runtime development, FPGA implementation, and hardware/software integration.
+The project spans the complete hardware/software stack: CPU microarchitecture, RTL verification, bare-metal software, FPGA implementation, and hardware/software integration.
 
 ---
 
@@ -10,20 +10,23 @@ The project covers the full hardware/software stack: processor microarchitecture
 
 ## Processor
 
-- RV32I processor implemented from scratch in SystemVerilog
-- Five-stage **IF / ID / EX / MEM / WB pipeline** *(in development)*
+- Five-stage **IF / ID / EX / MEM / WB** RV32I pipeline
 - EX/MEM and MEM/WB data forwarding
+- WB-to-ID register bypass
+- Load-use hazard detection and pipeline stalls
 - Branch and store-data forwarding
+- Control-hazard detection and pipeline flushing
+- Machine-mode CSRs, traps, and interrupts
 - Harvard instruction/data memory architecture
-- Machine-mode traps, interrupts, and CSRs
-- Fully synthesizable RTL
+- Fully synthesizable SystemVerilog
 
 ## Supported ISA
 
 Supports the RV32I integer instruction set, including:
 
 - Integer arithmetic and logical operations
-- Shifts and comparisons
+- Immediate arithmetic and logic
+- Shifts and signed/unsigned comparisons
 - Byte, halfword, and word loads/stores
 - Conditional branches
 - JAL / JALR
@@ -33,18 +36,38 @@ Supports the RV32I integer instruction set, including:
 
 ---
 
-# SoC Features
+# CPU Microarchitecture
 
-The custom SoC currently includes:
+The current processor uses a classic five-stage in-order pipeline:
 
-- RV32I CPU
-- Instruction and data memories
-- Modular memory-mapped bus
-- GPIO peripheral
-- UART interface
-- Programmable timer
-- Interrupt controller
-- Machine-mode CSR subsystem
+```text
+        IF          ID          EX          MEM         WB
+        |           |           |           |           |
+ PC -> IMEM -> IF/ID -> Decode -> ID/EX -> ALU -> EX/MEM -> Memory -> MEM/WB
+                        Regfile           Branch                    Regfile
+```
+
+Pipeline features currently implemented and verified:
+
+- IF/ID, ID/EX, EX/MEM, and MEM/WB pipeline registers
+- EX/MEM → EX forwarding
+- MEM/WB → EX forwarding
+- WB → ID register bypass
+- Forwarding into ALU, branch, JALR, and store-data paths
+- One-cycle load-use stalls
+- PC and IF/ID freezing during hazards
+- Bubble injection into ID/EX
+- EX-stage branch/jump resolution
+- Taken-branch and jump flushing
+- Retirement interface for architectural verification
+
+Directed tests cover back-to-back dependencies, load-use hazards, taken and not-taken branches, load-to-branch dependencies, store forwarding, JAL, and JALR.
+
+---
+
+# SoC Architecture
+
+The processor is integrated into a custom memory-mapped SoC:
 
 ```text
                  +----------------+
@@ -53,26 +76,38 @@ The custom SoC currently includes:
                          |
                   Memory-Mapped Bus
                          |
-          +--------------+--------------+
-          |              |              |
-        DMEM           Timer          GPIO
+        +----------------+----------------+
+        |                |                |
+      DMEM             Timer            GPIO
                          |
                     Interrupts
                          |
                        UART
 ```
 
-The CPU remains independent of individual peripherals, allowing the SoC to be extended without modifying the processor datapath.
+The SoC currently includes:
+
+- RV32I CPU
+- Instruction and data memories
+- Modular memory-mapped bus
+- GPIO peripheral
+- UART interface
+- Programmable machine timer
+- Interrupt controller
+- Machine-mode CSR subsystem
+
+The CPU is kept independent of individual peripherals, allowing the SoC to be extended without modifying the processor datapath.
 
 ---
 
 # Bare-Metal Runtime
 
-Software runs directly on the custom processor without an operating system.
+Software executes directly on the custom processor without an operating system.
 
 The runtime includes:
 
-- `crt0` startup code and `.bss` initialization
+- `crt0` startup code
+- `.bss` initialization
 - Custom linker script
 - Freestanding C support
 - Stack and function-call support
@@ -82,24 +117,26 @@ The runtime includes:
 - Context switching
 - Preemptive round-robin scheduler
 
-The scheduler has been validated on physical FPGA hardware using independent tasks with persistent local state across repeated timer-driven context switches.
+The scheduler has been validated on physical FPGA hardware using multiple independent tasks with persistent local state across repeated timer-driven context switches.
 
 ---
 
 # FPGA Implementation
 
-The SoC has been deployed successfully on a **Digilent Cora Z7-07S**, using the Zynq XC7Z007S programmable logic.
+The SoC has been successfully deployed on a **Digilent Cora Z7-07S**, using the Zynq XC7Z007S programmable logic.
 
-Verified in hardware:
+Hardware-validated functionality includes:
 
 - RV32I program execution
+- Compiled bare-metal C
 - Memory-mapped GPIO controlling physical LEDs
-- Timer interrupts
-- Machine-mode trap entry/return
-- Preemptive task scheduling
-- UART output through the board's onboard USB interface
+- Machine timer interrupts
+- Trap entry and return
+- Preemptive context switching
+- Multi-task scheduling
+- UART output to a host computer
 
-UART output is bridged between the custom RV32I SoC in programmable logic and the Zynq Processing System using an AXI GPIO mailbox with a synchronized valid/acknowledge handshake:
+UART output is bridged from the custom RV32I processor in programmable logic through the Zynq Processing System:
 
 ```text
 RV32I
@@ -108,6 +145,7 @@ RV32I
   v
 PL Mailbox
   |
+  | synchronized VALID / ACK handshake
   v
 AXI GPIO
   |
@@ -119,47 +157,40 @@ PS UART0
   |
   v
 Onboard USB-UART
+  |
+  v
+Linux Host
 ```
 
-The design integrates custom RTL with Xilinx Vivado IP Integrator, AXI, Zynq PS initialization, and bare-metal Cortex-A9 firmware.
+The mailbox uses a synchronized multi-state handshake to safely transfer bytes between the programmable-logic and processing-system domains.
 
----
+The FPGA design integrates:
 
-# Five-Stage Pipeline
-
-Development is underway on a pipelined successor to the validated single-cycle core:
-
-```text
- IF  ->  ID  ->  EX  ->  MEM  ->  WB
-```
-
-Currently implemented and verified:
-
-- IF/ID, ID/EX, EX/MEM, and MEM/WB pipeline registers
-- EX/MEM forwarding
-- MEM/WB forwarding
-- Branch operand forwarding
-- Store-data forwarding
-- Control-flow flushing
-
-Current work focuses on load-use hazard detection and pipeline stalls before restoring precise interrupt/trap behavior to the pipelined design.
+- Custom SystemVerilog RTL
+- Vivado IP Integrator
+- Zynq Processing System
+- AXI GPIO
+- Clock/reset infrastructure
+- Vitis bare-metal Cortex-A9 firmware
+- XSDB/JTAG bring-up and debugging
 
 ---
 
 # Verification
 
-Verification is performed continuously alongside RTL development.
+Verification is developed alongside the processor rather than added after implementation.
+
+## Directed Verification
 
 Current infrastructure includes:
 
 - Self-checking SystemVerilog unit tests
-- Integration tests
+- Full-SoC integration tests
 - Assembly regression programs
 - Compiled C regression programs
-- Full-SoC simulation
 - FPGA hardware validation
 
-Verified components include:
+Independently verified components include:
 
 - ALU
 - Register file
@@ -170,17 +201,93 @@ Verified components include:
 - UART
 - Timer
 - Interrupt controller
-- Bus
+- Memory-mapped bus
 - CSR/trap subsystem
 - Context switching and scheduler
-- Pipeline forwarding paths
+- Pipeline forwarding and hazard logic
 - Complete SoC
+
+## Retirement-Based Verification
+
+The pipelined processor exposes an architectural retirement interface:
+
+```text
+retire_valid
+retire_pc
+retire_instr
+retire_reg_write
+retire_rd
+retire_rd_data
+```
+
+A reusable SystemVerilog monitor observes committed instructions independently of internal pipeline timing.
+
+Optional retirement tracing allows failing programs to be reproduced and inspected instruction-by-instruction without generating verbose logs during normal regressions.
+
+## Assertion-Based Verification
+
+SystemVerilog assertions check pipeline invariants including:
+
+- `x0` remains hardwired to zero
+- Invalid pipeline entries cannot modify architectural state
+- Memory transactions originate from valid instructions
+- Load-use hazards stall the PC
+- Load-use hazards inject pipeline bubbles
+- Control-flow redirects flush younger instructions
+
+## Randomized Differential Verification
+
+A UVM-like randomized verification environment is under active development:
+
+```text
+                 Random Seed
+                     |
+                     v
+            Instruction Generator
+                 /         \
+                v           v
+       Generated RV32I   Python RV32I
+          Assembly       Reference Model
+                |           |
+                v           |
+          GNU Toolchain     |
+                |           |
+                v           |
+          Verilator DUT     |
+                |           |
+                v           v
+          RTL State ----> Scoreboard
+                           |
+                           v
+                      PASS / FAIL
+```
+
+Current randomized verification supports:
+
+- Reproducible seeded instruction generation
+- Hundreds of randomized instructions per test
+- Biased RAW dependencies to stress forwarding
+- Independent Python architectural reference model
+- Automatic comparison of all 32 architectural registers
+- Multi-seed regression testing
+- Optional retirement traces for failing seeds
+
+Randomized ALU regressions currently exercise:
+
+- ADD / SUB
+- ADDI
+- AND / OR / XOR
+- SLL / SRL
+- SLT / SLTU
+- Back-to-back register dependencies
+
+Randomized load/store and memory-state differential checking are currently being added.
 
 ---
 
-# Software Build Flow
+# Software Build and Verification Flow
 
-Programs are compiled with the GNU RISC-V toolchain and linked using a custom linker script.
+Programs are compiled with the GNU RISC-V toolchain using a custom linker script:
 
 ```text
 C / Assembly
@@ -199,11 +306,31 @@ ELF
 Simulation / FPGA
 ```
 
+The Make-based flow supports normal programs, simulation, retirement tracing, and seeded randomized regressions.
+
+Example:
+
+```bash
+make PROGRAM=test1 sim
+```
+
+Randomized differential test:
+
+```bash
+make random-sim SEED=1234 COUNT=500
+```
+
+Reproduce a failing seed with retirement tracing:
+
+```bash
+make random-sim SEED=1234 COUNT=500 TRACE_RETIRE=1
+```
+
 The same bare-metal software stack is used for RTL simulation and FPGA execution.
 
 ---
 
-# Example
+# Example FPGA Program
 
 ```c
 #include "uart.h"
@@ -217,7 +344,7 @@ int main(void)
 }
 ```
 
-More advanced programs exercise periodic timer interrupts and multiple preemptively scheduled tasks on the physical FPGA.
+More advanced workloads exercise timer interrupts and multiple preemptively scheduled tasks on physical FPGA hardware.
 
 ---
 
@@ -225,17 +352,18 @@ More advanced programs exercise periodic timer interrupts and multiple preemptiv
 
 Current development direction:
 
-- Complete load-use hazard detection and pipeline stalls
-- Restore precise traps and interrupts to the five-stage pipeline
-- FPGA validation of the pipelined processor
-- BRAM-friendly synchronous memory architecture
-- Hardware performance counters
-- Custom AXI4-Lite interconnect
-- DMA engine
-- INT8 systolic-array accelerator
-- Quantized ML inference workloads
-- Expanded assertion-based and constrained-random verification
-- UVM verification environment
+- Complete randomized load/store and memory differential testing
+- Add randomized branch/JAL/JALR verification
+- Add functional coverage and automated multi-seed regressions
+- Restore precise traps and asynchronous interrupts to the pipelined core
+- Revalidate the pipelined processor on FPGA
+- Convert instruction/data memory to a BRAM-friendly synchronous architecture
+- Add hardware performance counters
+- Implement AXI4-Lite-style SoC interconnect
+- Build a DMA engine
+- Integrate an INT8 systolic-array accelerator
+- Run quantized ML workloads through the complete CPU/DMA/accelerator system
+- Expand the UVM-like environment into a full UVM verification environment
 
 ---
 
@@ -244,6 +372,7 @@ Current development direction:
 - SystemVerilog
 - RISC-V RV32I
 - C / RISC-V Assembly
+- Python
 - Verilator
 - GTKWave
 - GNU RISC-V Toolchain
@@ -253,7 +382,6 @@ Current development direction:
 - XSDB / JTAG
 - Make
 - Git
-- Python
 
 ---
 
@@ -266,14 +394,15 @@ rtl/
     soc/
     fpga/
 
-runtime/
-
 software/
     programs/
+    runtime/
 
 tests/
     unit/
     integration/
+    uvm_like/
+    random/
 
 scripts/
 docs/
@@ -283,17 +412,22 @@ docs/
 
 # Project Goals
 
-The project is designed to develop and demonstrate practical experience in:
+The project is designed to develop and demonstrate practical experience across:
 
 - RTL and digital design
 - CPU microarchitecture
+- Pipeline hazard handling
 - Design verification
-- FPGA implementation
+- Assertion-based verification
+- Constrained/randomized verification
+- Architectural reference modeling
+- FPGA implementation and bring-up
 - RISC-V architecture
 - SoC and memory-mapped interconnect design
 - Embedded and bare-metal software
 - Interrupt and context-switch architecture
+- Clock-domain crossing
 - Hardware/software co-design
 - Accelerator architecture
 
-The long-term goal is a verified FPGA SoC combining a pipelined RISC-V processor, AXI-based interconnect, DMA subsystem, and hardware accelerator for quantized machine-learning workloads.
+The long-term goal is a **verified FPGA SoC combining a pipelined RISC-V processor, AXI-based interconnect, DMA subsystem, and systolic-array accelerator for quantized machine-learning workloads**.
