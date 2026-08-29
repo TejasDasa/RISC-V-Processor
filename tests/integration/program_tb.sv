@@ -248,6 +248,15 @@ module program_tb #(
             );
         end
 
+        // MEM DUMP
+        for (int i = 0; i < 64; i++) begin
+            $display(
+                "MEM 0x%08h = 0x%08h",
+                32'h0001_0000 + (i * 4),
+                dut.bus_inst.dmem_inst.mem[i]
+            );
+        end
+
 
         // ========================================================
         // UART DUMP

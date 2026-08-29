@@ -19,23 +19,14 @@ int unsigned retire_count;
         end else if (retire_valid) begin
             retire_count <= retire_count + 1;
 
-            if (retire_reg_write) begin
-                $display(
-                    "RETIRE #%0d pc=%08h instr=%08h rd=x%0d data=%08h",
-                    retire_count,
-                    retire_pc,
-                    retire_instr,
-                    retire_rd,
-                    retire_rd_data
-                );
-            end else begin
-                $display(
-                    "RETIRE #%0d pc=%08h instr=%08h",
-                    retire_count,
-                    retire_pc,
-                    retire_instr
-                );
-            end
+            $display(
+                "RETIRE pc=%08h instr=%08h regwrite=%0d rd=%0d data=%08h",
+                retire_pc,
+                retire_instr,
+                retire_reg_write,
+                retire_rd,
+                retire_rd_data
+            );
         end
     end
 `else
