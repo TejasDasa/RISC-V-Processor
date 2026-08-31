@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
 import re
 
@@ -10,7 +11,8 @@ import re
 U32_MASK = 0xFFFF_FFFF
 
 MEM_PATTERN = re.compile(
-    r"([-+]?(?:0[xX][0-9A-Fa-f]+|\d+))\(x(\d+)\)"
+    r"([-+]?(?:0[xX][0-9A-Fa-f]+|\d+))"
+    r"\(x(\d+)\)"
 )
 
 
@@ -19,7 +21,7 @@ def u32(value: int) -> int:
 
 
 def s32(value: int) -> int:
-    value &= U32_MASK
+    value = u32(value)
 
     if value & 0x8000_0000:
         return value - 0x1_0000_0000
@@ -28,17 +30,22 @@ def s32(value: int) -> int:
 
 
 def parse_reg(token: str) -> int:
-    token = token.strip()
-
-    match = re.fullmatch(r"x(\d+)", token)
+    match = re.fullmatch(
+        r"x(\d+)",
+        token.strip(),
+    )
 
     if match is None:
-        raise ValueError(f"Invalid register: {token}")
+        raise ValueError(
+            f"Invalid register: {token}"
+        )
 
     reg = int(match.group(1))
 
     if not 0 <= reg <= 31:
-        raise ValueError(f"Register out of range: {token}")
+        raise ValueError(
+            f"Register out of range: x{reg}"
+        )
 
     return reg
 
@@ -47,65 +54,238 @@ def parse_imm(token: str) -> int:
     return int(token.strip(), 0)
 
 
-def parse_mem_operand(token: str) -> tuple[int, int]:
-    match = MEM_PATTERN.fullmatch(token.strip())
+def parse_mem_operand(
+    token: str,
+) -> tuple[int, int]:
+
+    match = MEM_PATTERN.fullmatch(
+        token.strip()
+    )
 
     if match is None:
-        raise ValueError(f"Invalid memory operand: {token}")
+        raise ValueError(
+            f"Invalid memory operand: {token}"
+        )
 
-    offset = int(match.group(1), 0)
-    reg = int(match.group(2))
+    offset = int(
+        match.group(1),
+        0,
+    )
+
+    reg = int(
+        match.group(2)
+    )
 
     return offset, reg
+
+
+@dataclass
+class Instruction:
+    pc: int
+    text: str
+
+
+@dataclass
+class RetireEvent:
+    pc: int
+    reg_write: bool
+    rd: int
+    data: int
 
 
 class RV32IReferenceModel:
     def __init__(self) -> None:
         self.regs = [0] * 32
+
         self.memory: dict[int, int] = {}
 
-    def read_reg(self, reg: int) -> int:
+        self.instructions: dict[
+            int,
+            Instruction
+        ] = {}
+
+        self.labels: dict[str, int] = {}
+
+        self.retire_events: list[
+            RetireEvent
+        ] = []
+
+        self.pc = 0
+
+        self.halt_pc: int | None = None
+
+    # ============================================================
+    # Architectural state
+    # ============================================================
+
+    def read_reg(
+        self,
+        reg: int,
+    ) -> int:
+
         if reg == 0:
             return 0
 
         return self.regs[reg]
 
-    def write_reg(self, reg: int, value: int) -> None:
+    def write_reg(
+        self,
+        reg: int,
+        value: int,
+    ) -> None:
+
         if reg == 0:
             return
 
         self.regs[reg] = u32(value)
 
-    def load_word(self, addr: int) -> int:
-        return self.memory.get(addr, 0)
+    def load_word(
+        self,
+        addr: int,
+    ) -> int:
 
-    def store_word(self, addr: int, value: int) -> None:
-        self.memory[addr] = u32(value)
+        return self.memory.get(
+            u32(addr),
+            0,
+        )
 
-    def execute(self, line: str) -> None:
-        # Remove comments.
-        line = line.split("#", 1)[0].strip()
+    def store_word(
+        self,
+        addr: int,
+        value: int,
+    ) -> None:
 
-        if not line:
-            return
+        self.memory[u32(addr)] = u32(
+            value
+        )
 
-        # Ignore labels and assembler directives.
-        if line.endswith(":"):
-            return
+    # ============================================================
+    # Assembly loading
+    # ============================================================
 
-        if line.startswith("."):
-            return
+    def load_program(
+        self,
+        path: Path,
+    ) -> None:
 
-        # Normalize commas into spaces.
-        tokens = line.replace(",", " ").split()
+        pc = 0
 
-        if not tokens:
-            return
+        # --------------------------------------------------------
+        # Pass 1: collect labels
+        # --------------------------------------------------------
+
+        for raw_line in path.read_text().splitlines():
+            line = raw_line.split(
+                "#",
+                1,
+            )[0].strip()
+
+            if not line:
+                continue
+
+            if line.startswith("."):
+                continue
+
+            if line.endswith(":"):
+                label = line[:-1].strip()
+
+                self.labels[label] = pc
+                continue
+
+            pc += 4
+
+        # --------------------------------------------------------
+        # Pass 2: collect instructions
+        # --------------------------------------------------------
+
+        pc = 0
+
+        for raw_line in path.read_text().splitlines():
+            line = raw_line.split(
+                "#",
+                1,
+            )[0].strip()
+
+            if not line:
+                continue
+
+            if line.startswith("."):
+                continue
+
+            if line.endswith(":"):
+                continue
+
+            self.instructions[pc] = (
+                Instruction(
+                    pc=pc,
+                    text=line,
+                )
+            )
+
+            pc += 4
+
+        if "_start" in self.labels:
+            self.pc = self.labels["_start"]
+        else:
+            self.pc = 0
+
+        self.halt_pc = self.labels.get(
+            "halt"
+        )
+
+    # ============================================================
+    # Retirement bookkeeping
+    # ============================================================
+
+    def retire(
+        self,
+        pc: int,
+        reg_write: bool = False,
+        rd: int = 0,
+        data: int = 0,
+    ) -> None:
+
+        self.retire_events.append(
+            RetireEvent(
+                pc=u32(pc),
+                reg_write=reg_write,
+                rd=rd,
+                data=u32(data),
+            )
+        )
+
+    # ============================================================
+    # Execute one instruction
+    # ============================================================
+
+    def step(self) -> None:
+        if self.pc not in self.instructions:
+            raise RuntimeError(
+                f"No instruction at "
+                f"PC 0x{self.pc:08x}"
+            )
+
+        current_pc = self.pc
+
+        instr = self.instructions[
+            current_pc
+        ]
+
+        tokens = (
+            instr.text
+            .replace(",", " ")
+            .split()
+        )
 
         op = tokens[0].lower()
 
+        # Default next PC.
+        next_pc = u32(
+            current_pc + 4
+        )
+
         # --------------------------------------------------------
-        # Immediate arithmetic
+        # ADDI
         # --------------------------------------------------------
 
         if op == "addi":
@@ -113,16 +293,52 @@ class RV32IReferenceModel:
             rs1 = parse_reg(tokens[2])
             imm = parse_imm(tokens[3])
 
-            result = self.read_reg(rs1) + imm
+            result = u32(
+                self.read_reg(rs1)
+                + imm
+            )
 
-            self.write_reg(rd, result)
-            return
+            self.write_reg(
+                rd,
+                result,
+            )
+
+            self.retire(
+                current_pc,
+                reg_write=(rd != 0),
+                rd=rd,
+                data=result,
+            )
 
         # --------------------------------------------------------
-        # Register-register arithmetic / logic
+        # LUI
         # --------------------------------------------------------
 
-        if op in {
+        elif op == "lui":
+            rd = parse_reg(tokens[1])
+            imm = parse_imm(tokens[2])
+
+            result = u32(
+                imm << 12
+            )
+
+            self.write_reg(
+                rd,
+                result,
+            )
+
+            self.retire(
+                current_pc,
+                reg_write=(rd != 0),
+                rd=rd,
+                data=result,
+            )
+
+        # --------------------------------------------------------
+        # Register-register ALU
+        # --------------------------------------------------------
+
+        elif op in {
             "add",
             "sub",
             "and",
@@ -156,85 +372,278 @@ class RV32IReferenceModel:
                 result = a ^ b
 
             elif op == "sll":
-                result = a << (b & 0x1F)
+                result = (
+                    a << (b & 0x1F)
+                )
 
             elif op == "srl":
-                result = u32(a) >> (b & 0x1F)
+                result = (
+                    u32(a)
+                    >> (b & 0x1F)
+                )
 
             elif op == "slt":
-                result = int(s32(a) < s32(b))
+                result = int(
+                    s32(a) < s32(b)
+                )
 
             elif op == "sltu":
-                result = int(u32(a) < u32(b))
+                result = int(
+                    u32(a) < u32(b)
+                )
 
             else:
-                raise AssertionError("unreachable")
+                raise AssertionError(
+                    "unreachable"
+                )
 
-            self.write_reg(rd, result)
-            return
+            result = u32(result)
+
+            self.write_reg(
+                rd,
+                result,
+            )
+
+            self.retire(
+                current_pc,
+                reg_write=(rd != 0),
+                rd=rd,
+                data=result,
+            )
 
         # --------------------------------------------------------
-        # Loads
+        # LW
         # --------------------------------------------------------
 
-        if op == "lw":
+        elif op == "lw":
             rd = parse_reg(tokens[1])
 
-            offset, rs1 = parse_mem_operand(tokens[2])
+            offset, rs1 = parse_mem_operand(
+                tokens[2]
+            )
 
             addr = u32(
-                self.read_reg(rs1) + offset
+                self.read_reg(rs1)
+                + offset
+            )
+
+            result = self.load_word(
+                addr
             )
 
             self.write_reg(
                 rd,
-                self.load_word(addr)
+                result,
             )
 
-            return
+            self.retire(
+                current_pc,
+                reg_write=(rd != 0),
+                rd=rd,
+                data=result,
+            )
 
         # --------------------------------------------------------
-        # Stores
+        # SW
         # --------------------------------------------------------
 
-        if op == "sw":
+        elif op == "sw":
             rs2 = parse_reg(tokens[1])
 
-            offset, rs1 = parse_mem_operand(tokens[2])
+            offset, rs1 = parse_mem_operand(
+                tokens[2]
+            )
 
             addr = u32(
-                self.read_reg(rs1) + offset
+                self.read_reg(rs1)
+                + offset
             )
 
             self.store_word(
                 addr,
-                self.read_reg(rs2)
+                self.read_reg(rs2),
             )
 
-            return
+            self.retire(
+                current_pc
+            )
 
         # --------------------------------------------------------
-        # Halt loop
+        # Conditional branches
         # --------------------------------------------------------
 
-        if op == "jal":
-            return
+        elif op in {
+            "beq",
+            "bne",
+            "blt",
+            "bge",
+            "bltu",
+            "bgeu",
+        }:
+            rs1 = parse_reg(tokens[1])
+            rs2 = parse_reg(tokens[2])
+            label = tokens[3]
 
-        raise ValueError(
-            f"Unsupported instruction in reference model: {line}"
+            a = self.read_reg(rs1)
+            b = self.read_reg(rs2)
+
+            if op == "beq":
+                taken = a == b
+
+            elif op == "bne":
+                taken = a != b
+
+            elif op == "blt":
+                taken = (
+                    s32(a) < s32(b)
+                )
+
+            elif op == "bge":
+                taken = (
+                    s32(a) >= s32(b)
+                )
+
+            elif op == "bltu":
+                taken = (
+                    u32(a) < u32(b)
+                )
+
+            elif op == "bgeu":
+                taken = (
+                    u32(a) >= u32(b)
+                )
+
+            else:
+                raise AssertionError(
+                    "unreachable"
+                )
+
+            if taken:
+                next_pc = self.labels[
+                    label
+                ]
+
+            self.retire(
+                current_pc
+            )
+
+        # --------------------------------------------------------
+        # JAL
+        # --------------------------------------------------------
+
+        elif op == "jal":
+            rd = parse_reg(tokens[1])
+            label = tokens[2]
+
+            link = u32(
+                current_pc + 4
+            )
+
+            self.write_reg(
+                rd,
+                link,
+            )
+
+            next_pc = self.labels[
+                label
+            ]
+
+            self.retire(
+                current_pc,
+                reg_write=(rd != 0),
+                rd=rd,
+                data=link,
+            )
+
+        # --------------------------------------------------------
+        # JALR
+        # --------------------------------------------------------
+
+        elif op == "jalr":
+            rd = parse_reg(tokens[1])
+
+            offset, rs1 = parse_mem_operand(
+                tokens[2]
+            )
+
+            link = u32(
+                current_pc + 4
+            )
+
+            target = u32(
+                self.read_reg(rs1)
+                + offset
+            )
+
+            target &= 0xFFFF_FFFE
+
+            self.write_reg(
+                rd,
+                link,
+            )
+
+            next_pc = target
+
+            self.retire(
+                current_pc,
+                reg_write=(rd != 0),
+                rd=rd,
+                data=link,
+            )
+
+        else:
+            raise ValueError(
+                "Unsupported instruction: "
+                f"{instr.text}"
+            )
+
+        self.pc = u32(next_pc)
+
+    # ============================================================
+    # Run
+    # ============================================================
+
+    def run(
+        self,
+        max_steps: int = 100_000,
+    ) -> None:
+
+        steps = 0
+
+        while steps < max_steps:
+
+            # Execute the halt JAL once so it appears in the
+            # expected retirement stream, then stop.
+            if (
+                self.halt_pc is not None
+                and self.pc == self.halt_pc
+            ):
+                self.step()
+                return
+
+            self.step()
+
+            steps += 1
+
+        raise RuntimeError(
+            "Reference model exceeded "
+            f"{max_steps} instructions"
         )
 
-    def run_file(self, path: Path) -> None:
-        for line_number, raw_line in enumerate(
-            path.read_text().splitlines(),
-            start=1,
-        ):
-            try:
-                self.execute(raw_line)
-            except Exception as error:
-                raise RuntimeError(
-                    f"{path}:{line_number}: {error}"
-                ) from error
+    # ============================================================
+    # Dumps
+    # ============================================================
+
+    def dump_retirements(self) -> None:
+        for event in self.retire_events:
+
+            print(
+                "EXPECTED_RETIRE "
+                f"pc={event.pc:08x} "
+                f"regwrite={int(event.reg_write)} "
+                f"rd={event.rd} "
+                f"data={event.data:08x}"
+            )
 
     def dump_registers(self) -> None:
         for reg in range(32):
@@ -246,25 +655,46 @@ class RV32IReferenceModel:
                 f"({s32(value)})"
             )
 
+    def dump_memory(self) -> None:
+        for addr in sorted(
+            self.memory
+        ):
+            value = self.memory[
+                addr
+            ]
+
+            print(
+                f"MEM 0x{addr:08x} = "
+                f"0x{value:08x}"
+            )
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Tiny RV32I architectural reference model"
+        description=(
+            "RV32I architectural "
+            "reference model"
+        )
     )
 
     parser.add_argument(
         "program",
         type=Path,
-        help="Generated assembly program",
     )
 
     args = parser.parse_args()
 
     model = RV32IReferenceModel()
 
-    model.run_file(args.program)
+    model.load_program(
+        args.program
+    )
 
+    model.run()
+
+    model.dump_retirements()
     model.dump_registers()
+    model.dump_memory()
 
 
 if __name__ == "__main__":

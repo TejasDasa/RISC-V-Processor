@@ -217,6 +217,7 @@ VERILATOR_SOURCES := \
 	$(REPO_ROOT)/rtl/soc/soc.sv \
 	$(REPO_ROOT)/tests/uvm_like/cpu_monitor.sv \
 	$(REPO_ROOT)/tests/uvm_like/cpu_assertions.sv \
+	$(REPO_ROOT)/tests/uvm_like/cpu_coverage.sv \
 	$(REPO_ROOT)/tests/integration/program_tb.sv
 
 
@@ -282,7 +283,7 @@ random-sim: generate-random
 	$(MAKE) \
 		PROGRAM=random_test \
 		PROGRAM_DIR=$(RANDOM_DIR) \
-		TRACE_RETIRE=$(TRACE_RETIRE) \
+		TRACE_RETIRE=1 \
 		sim
 
 	@echo ""

@@ -2,6 +2,10 @@
 .globl _start
 
 _start:
+
+    lui x20, 0x10
+    addi x19, x0, 0
+
     addi x1, x0, 1
     addi x2, x0, 2
     addi x3, x0, 3
@@ -18,506 +22,358 @@ _start:
     addi x14, x0, 14
     addi x15, x0, 15
 
-    addi x13, x3, -55
-    addi x6, x5, 88
-    add x4, x5, x12
-    or x7, x4, x8
-    sll x12, x6, x2
-    sltu x2, x12, x12
-    srl x3, x11, x2
-    addi x1, x3, 70
-    sltu x10, x1, x1
-    xor x7, x7, x10
-    srl x5, x7, x2
-    xor x2, x15, x3
-    addi x2, x2, -41
-    sub x2, x14, x14
-    or x6, x2, x8
-    sub x15, x6, x3
-    or x7, x3, x1
-    sltu x9, x3, x7
-    and x11, x10, x5
-    or x11, x11, x1
-    and x9, x14, x3
-    srl x14, x9, x15
-    or x11, x14, x15
-    xor x4, x12, x10
-    xor x13, x4, x11
-    sll x8, x12, x13
-    add x9, x8, x15
-    addi x5, x1, 104
-    sltu x3, x5, x9
-    sub x3, x3, x7
-    srl x3, x4, x3
-    add x15, x3, x11
-    slt x3, x4, x5
-    sll x7, x3, x6
-    addi x13, x7, -127
-    srl x10, x15, x1
-    and x13, x10, x2
-    or x8, x5, x10
-    addi x11, x8, 44
-    add x6, x11, x11
-    srl x15, x6, x11
-    sub x13, x15, x2
-    sll x2, x13, x2
-    and x9, x11, x10
-    sub x4, x7, x6
-    add x12, x4, x11
-    srl x1, x7, x10
-    xor x8, x13, x14
-    addi x8, x5, 20
-    addi x8, x8, 11
-    addi x10, x8, -69
-    srl x5, x10, x5
-    sub x11, x5, x14
-    or x2, x11, x2
-    add x7, x15, x7
-    slt x11, x1, x7
-    and x8, x5, x1
-    xor x14, x8, x9
-    sll x10, x14, x14
-    and x13, x10, x5
-    sltu x5, x1, x15
-    add x3, x5, x5
-    addi x6, x3, -70
-    srl x15, x6, x13
-    sll x10, x15, x15
-    sll x10, x13, x8
-    xor x11, x10, x10
-    add x10, x2, x11
-    sltu x4, x10, x5
-    add x4, x4, x4
-    slt x3, x4, x15
-    sub x14, x3, x1
-    sltu x1, x14, x1
-    srl x1, x1, x13
-    xor x13, x1, x2
-    or x5, x13, x13
-    add x9, x13, x1
-    sub x12, x9, x9
-    or x6, x6, x2
-    slt x13, x6, x6
-    sll x5, x13, x13
-    srl x4, x5, x5
-    addi x2, x4, 66
-    sltu x13, x7, x2
-    srl x1, x13, x13
-    add x6, x6, x3
-    addi x13, x6, -102
-    and x8, x13, x13
-    xor x13, x8, x3
-    sub x11, x13, x5
-    or x1, x6, x13
-    srl x5, x2, x7
-    sltu x12, x5, x5
-    sub x15, x10, x12
-    addi x1, x3, 41
-    sub x4, x2, x6
-    and x5, x4, x5
-    add x1, x5, x4
-    and x12, x5, x12
-    sub x15, x3, x4
-    or x8, x11, x15
-    sltu x14, x6, x7
-    and x11, x14, x1
-    slt x6, x11, x3
-    sll x6, x8, x6
-    srl x8, x2, x14
-    srl x14, x8, x15
-    sltu x7, x14, x14
-    sub x13, x7, x5
-    sltu x11, x13, x8
-    addi x6, x12, -2
-    add x8, x6, x11
-    or x13, x8, x13
-    slt x5, x13, x13
-    add x12, x15, x5
-    addi x5, x12, 114
-    slt x14, x11, x13
-    sll x15, x14, x13
-    srl x10, x8, x1
-    and x2, x10, x2
-    and x3, x13, x9
-    slt x11, x3, x13
-    or x9, x11, x15
-    sll x2, x9, x9
-    add x2, x2, x2
-    sltu x3, x2, x8
-    or x14, x3, x12
-    sub x2, x14, x10
-    and x6, x2, x2
-    and x5, x10, x15
-    sub x3, x9, x12
-    or x11, x3, x7
-    sltu x5, x11, x3
-    sltu x4, x5, x5
-    or x5, x4, x8
-    and x8, x13, x2
-    xor x9, x8, x1
-    sltu x15, x9, x9
-    sub x11, x15, x6
-    add x13, x11, x6
-    add x7, x3, x6
-    addi x7, x13, -42
-    sltu x1, x11, x1
-    srl x6, x1, x13
-    sll x5, x14, x14
-    xor x2, x9, x11
-    sll x11, x14, x11
-    sub x5, x11, x11
-    add x1, x5, x7
-    sub x5, x9, x1
-    add x14, x15, x10
-    sltu x8, x14, x1
-    slt x12, x13, x8
-    xor x12, x5, x3
-    srl x9, x14, x3
-    or x7, x9, x9
-    and x2, x2, x7
-    slt x15, x2, x1
-    sub x4, x15, x15
-    add x3, x4, x4
-    sltu x13, x3, x12
-    and x4, x13, x14
-    sll x2, x4, x14
-    sub x3, x2, x2
-    sll x2, x3, x3
-    sub x5, x2, x15
-    sub x6, x5, x4
-    sll x8, x6, x6
-    xor x7, x8, x8
-    and x9, x7, x7
-    sltu x2, x4, x4
-    slt x3, x2, x2
-    sll x6, x3, x8
-    add x12, x6, x5
-    slt x8, x12, x8
-    xor x14, x8, x8
-    and x2, x14, x9
-    sltu x1, x2, x2
-    or x7, x1, x12
-    srl x7, x7, x13
-    addi x1, x7, 37
-    addi x14, x2, 70
-    xor x7, x14, x6
-    srl x9, x15, x11
-    addi x4, x9, 121
-    sltu x1, x13, x10
-    slt x3, x1, x4
-    addi x5, x3, 120
-    or x7, x14, x7
-    and x1, x13, x4
-    addi x5, x10, -88
-    sltu x4, x5, x5
-    sll x2, x4, x15
-    sltu x6, x6, x15
-    addi x5, x5, 77
-    sll x11, x4, x5
-    sub x3, x10, x2
-    addi x7, x14, -104
-    add x14, x7, x12
-    slt x6, x14, x7
-    sub x8, x6, x15
-    srl x3, x5, x8
-    add x6, x3, x11
-    addi x10, x6, -72
-    slt x10, x10, x1
-    sltu x13, x10, x2
-    xor x9, x13, x1
-    srl x12, x1, x2
-    sll x12, x5, x2
-    sub x4, x2, x6
-    add x3, x6, x4
-    or x4, x3, x1
-    addi x15, x10, -53
-    sub x3, x1, x12
-    xor x13, x6, x7
-    sltu x10, x13, x3
-    sll x12, x10, x10
-    and x2, x15, x15
-    sll x10, x2, x2
-    sub x6, x10, x10
-    add x8, x6, x5
-    or x11, x11, x8
-    xor x12, x15, x9
-    or x11, x12, x1
-    and x5, x11, x11
-    xor x4, x2, x7
-    addi x7, x4, 114
-    or x10, x7, x7
-    sub x12, x10, x11
-    sltu x10, x12, x14
-    sltu x2, x1, x10
-    add x3, x2, x4
-    addi x9, x3, 127
-    addi x4, x1, 97
-    addi x4, x4, -70
-    sub x5, x4, x4
-    addi x5, x5, 35
-    or x2, x5, x11
-    sltu x15, x2, x14
-    xor x9, x15, x3
-    addi x8, x11, -23
-    and x7, x8, x4
-    add x4, x7, x13
-    sub x15, x4, x4
-    slt x2, x12, x10
-    xor x8, x2, x2
-    and x10, x8, x8
-    xor x3, x10, x10
-    slt x3, x3, x15
-    or x10, x2, x12
-    or x8, x10, x4
-    and x7, x8, x8
-    add x2, x3, x2
-    or x4, x2, x2
-    sltu x3, x4, x7
-    slt x8, x3, x6
-    or x8, x8, x2
-    or x14, x8, x13
-    addi x15, x14, -19
-    xor x6, x15, x15
-    slt x12, x6, x8
-    sll x11, x12, x8
-    srl x14, x11, x1
-    sub x4, x14, x6
-    sltu x5, x4, x9
-    srl x13, x5, x7
-    add x13, x13, x15
-    sll x5, x13, x4
-    sub x1, x6, x8
-    srl x7, x7, x4
-    sub x13, x7, x7
-    sub x7, x10, x7
-    slt x1, x1, x10
-    slt x6, x3, x1
-    or x9, x6, x8
-    xor x2, x6, x9
-    xor x11, x2, x3
-    sltu x2, x11, x11
-    srl x11, x2, x3
-    slt x7, x11, x4
-    slt x5, x7, x3
-    and x8, x5, x10
-    addi x15, x5, -59
-    or x10, x15, x15
-    srl x8, x10, x7
-    and x14, x8, x14
-    and x1, x14, x2
-    addi x10, x1, -48
-    srl x8, x10, x10
+    jal x18, jal_target_0
+    addi x11, x11, 1
+    jal_target_0:
+    addi x16, x0, 5
+    addi x17, x0, 6
+    bne x16, x17, branch_target_1
+    addi x11, x11, 1
+    branch_target_1:
+    addi x16, x0, 5
+    addi x17, x0, 6
+    beq x16, x17, branch_target_2
+    addi x10, x10, 1
+    branch_target_2:
+    jal x18, jal_target_3
+    addi x1, x1, 1
+    jal_target_3:
+    add x2, x18, x10
+    and x4, x2, x6
+    add x11, x4, x7
+    sltu x4, x11, x11
+    or x5, x3, x15
     and x14, x10, x5
-    sll x12, x14, x10
-    or x14, x12, x13
-    addi x3, x14, -25
-    addi x1, x3, 110
-    add x1, x5, x2
-    addi x4, x1, -110
-    and x12, x1, x12
-    addi x13, x7, -120
-    sll x13, x13, x13
-    sub x3, x13, x3
-    addi x4, x10, 27
-    or x13, x12, x4
-    slt x11, x13, x12
-    or x2, x1, x1
-    sub x10, x2, x11
-    addi x3, x10, -85
-    or x6, x3, x13
-    add x3, x9, x6
-    sltu x7, x3, x12
-    srl x14, x7, x15
-    xor x14, x14, x1
-    or x3, x5, x15
-    xor x9, x3, x10
-    addi x11, x12, 120
-    srl x11, x11, x9
-    and x12, x9, x15
-    xor x10, x12, x12
-    addi x15, x10, -45
-    addi x13, x15, -9
-    sll x11, x13, x3
-    sll x7, x13, x11
-    slt x3, x7, x11
-    xor x11, x3, x8
-    sll x2, x11, x11
-    xor x5, x2, x2
-    add x5, x5, x15
-    add x11, x5, x5
-    srl x13, x11, x13
-    slt x4, x12, x13
-    sltu x12, x4, x4
-    srl x12, x12, x5
-    addi x13, x12, -82
-    and x3, x10, x3
-    and x2, x3, x7
-    addi x15, x4, 48
-    addi x14, x15, -83
-    xor x14, x14, x1
-    slt x14, x14, x4
-    addi x9, x14, -42
-    addi x3, x9, -113
-    slt x7, x3, x3
-    srl x9, x4, x7
-    sltu x2, x10, x9
+    sltu x5, x14, x6
+    lw x8, 76(x20)
+    sll x3, x8, x14
+    sub x13, x3, x2
+    jal x18, jal_target_4
+    addi x1, x1, 1
+    jal_target_4:
+    lw x7, 88(x20)
+    addi x16, x0, 5
+    addi x17, x0, 6
+    beq x16, x17, branch_target_5
+    addi x5, x5, 1
+    branch_target_5:
+    xor x11, x8, x13
+    sw x11, 84(x20)
+    lw x6, 4(x20)
+    addi x12, x6, -73
+    or x11, x12, x5
+    sw x11, 12(x20)
+    lw x12, 4(x20)
+    addi x15, x12, -59
+    addi x16, x0, 5
+    addi x17, x0, 6
+    bne x16, x17, branch_target_6
+    addi x2, x2, 1
+    branch_target_6:
     and x4, x2, x2
-    or x6, x4, x9
-    sll x1, x6, x1
-    add x9, x1, x13
-    or x7, x4, x8
-    slt x8, x7, x14
-    xor x2, x13, x15
-    xor x7, x15, x2
-    slt x10, x7, x15
-    sub x7, x4, x13
-    add x15, x7, x3
-    srl x2, x15, x13
-    sltu x13, x13, x10
-    sltu x5, x13, x13
-    srl x8, x5, x10
-    sll x12, x8, x2
-    addi x14, x1, 38
-    srl x10, x7, x11
-    or x14, x10, x4
-    and x4, x14, x12
-    add x12, x6, x7
-    add x14, x3, x13
-    srl x8, x12, x14
-    sub x15, x11, x3
-    addi x9, x15, 55
-    srl x1, x9, x9
-    and x1, x1, x6
-    addi x5, x1, -73
-    srl x15, x5, x5
-    sltu x15, x7, x1
-    slt x11, x15, x3
-    xor x8, x11, x2
-    and x3, x8, x14
-    sll x4, x3, x3
-    sltu x3, x12, x11
-    slt x10, x3, x3
-    or x2, x10, x10
-    slt x4, x2, x9
-    add x4, x4, x4
-    add x7, x4, x4
-    add x5, x7, x11
-    and x12, x9, x15
-    sltu x3, x1, x12
-    srl x7, x1, x9
-    and x8, x7, x7
-    sll x1, x8, x15
-    sll x11, x15, x6
-    and x2, x7, x4
-    sll x11, x2, x7
-    sub x8, x11, x7
-    srl x7, x8, x15
-    sub x2, x11, x2
-    sltu x12, x2, x2
-    or x13, x12, x4
-    or x9, x13, x7
-    add x3, x9, x13
-    slt x2, x12, x1
-    srl x2, x2, x7
-    sub x9, x2, x11
-    sll x13, x11, x3
-    add x14, x13, x12
-    add x3, x14, x9
-    addi x7, x3, 0
-    slt x10, x7, x3
-    sll x9, x10, x4
-    sll x9, x11, x4
-    slt x9, x13, x5
-    sll x9, x2, x9
-    slt x6, x14, x12
-    add x10, x3, x14
-    addi x7, x10, -38
-    sltu x5, x15, x15
-    srl x1, x5, x5
-    sub x3, x1, x1
-    sll x11, x3, x3
-    sltu x4, x6, x13
-    sll x9, x4, x14
-    sltu x5, x7, x9
-    addi x7, x5, -45
-    addi x13, x7, -122
-    srl x14, x11, x2
-    sub x3, x11, x7
-    sub x1, x3, x14
-    sltu x11, x3, x1
-    or x1, x11, x14
-    add x11, x9, x6
-    srl x3, x11, x6
-    sub x4, x8, x3
-    sll x1, x4, x4
-    sll x13, x6, x13
-    sltu x13, x10, x13
-    sltu x7, x13, x2
-    or x11, x15, x7
-    or x15, x11, x6
-    and x2, x15, x9
-    add x4, x2, x2
-    srl x8, x9, x9
-    and x13, x8, x12
-    sll x6, x2, x10
-    sub x15, x3, x11
-    xor x14, x15, x15
-    sltu x11, x7, x15
-    slt x5, x11, x8
-    sub x1, x5, x5
-    or x6, x10, x1
-    add x1, x6, x8
-    and x3, x1, x10
-    addi x14, x8, 111
-    and x6, x9, x1
-    add x4, x10, x6
-    srl x4, x14, x15
-    add x14, x11, x13
-    sltu x10, x14, x2
-    xor x5, x10, x13
-    and x3, x5, x5
-    and x3, x3, x8
-    slt x12, x3, x3
-    slt x10, x15, x5
-    sltu x9, x10, x12
-    or x5, x6, x12
-    and x9, x10, x5
-    sll x9, x1, x9
-    slt x11, x3, x8
-    srl x3, x3, x1
-    add x7, x3, x4
-    sub x1, x15, x7
-    xor x14, x1, x4
-    and x3, x14, x14
-    sll x8, x7, x1
-    or x7, x8, x8
-    add x15, x10, x6
-    slt x6, x15, x6
-    sll x9, x6, x5
-    xor x14, x9, x9
-    slt x4, x14, x11
-    sltu x6, x4, x5
-    or x13, x6, x10
-    srl x2, x13, x13
-    slt x13, x9, x2
-    sub x5, x13, x13
-    sltu x2, x5, x5
-    addi x13, x2, -29
-    and x14, x13, x7
-    srl x11, x14, x15
-    sll x11, x10, x10
-    srl x13, x5, x11
-    xor x4, x13, x11
-    sub x8, x12, x4
-    xor x3, x8, x8
-    and x15, x12, x8
-    or x3, x2, x14
-    sub x10, x6, x9
-    sub x10, x10, x10
-    slt x4, x10, x10
-    addi x8, x4, 48
-    addi x8, x11, 56
-    sltu x6, x5, x13
+    slt x7, x11, x4
+    lw x3, 96(x20)
+    add x15, x4, x5
+    add x1, x15, x6
+    sw x1, 144(x20)
+    addi x16, x0, 1
+    addi x17, x0, 2
+    bge x16, x17, branch_target_7
+    addi x2, x2, 1
+    branch_target_7:
+    lw x4, 4(x20)
+    lw x15, 172(x20)
+    or x10, x2, x15
+    jal x31, helper
+    and x10, x12, x10
+    addi x16, x0, 1
+    addi x17, x0, 2
+    blt x16, x17, branch_target_8
+    addi x13, x13, 1
+    branch_target_8:
+    sw x9, 192(x20)
+    or x1, x15, x10
+    addi x16, x0, 1
+    addi x17, x0, 2
+    blt x16, x17, branch_target_9
+    addi x4, x4, 1
+    branch_target_9:
+    xor x7, x4, x4
+    add x12, x1, x8
+    sub x5, x1, x12
+    slt x3, x5, x8
+    sll x7, x14, x5
+    lw x11, 148(x20)
+    addi x16, x0, 2
+    addi x17, x0, 1
+    bgeu x16, x17, branch_target_10
+    addi x6, x6, 1
+    branch_target_10:
+    sw x6, 236(x20)
+    addi x16, x0, 2
+    addi x17, x0, 1
+    bge x16, x17, branch_target_11
+    addi x14, x14, 1
+    branch_target_11:
+    jal x18, jal_target_12
+    addi x15, x15, 1
+    jal_target_12:
+    sw x18, 72(x20)
+    sw x11, 60(x20)
+    and x6, x18, x12
+    srl x11, x6, x3
+    addi x10, x2, -41
+    and x13, x2, x10
+    sub x5, x8, x13
+    srl x7, x9, x2
+    sw x5, 68(x20)
+    lw x7, 84(x20)
+    addi x11, x7, 119
+    addi x16, x0, 5
+    addi x17, x0, 6
+    bne x16, x17, branch_target_13
+    addi x5, x5, 1
+    branch_target_13:
+    srl x7, x5, x14
+    addi x16, x0, 1
+    addi x17, x0, 2
+    bgeu x16, x17, branch_target_14
+    addi x13, x13, 1
+    branch_target_14:
+    and x12, x13, x9
+    sll x14, x12, x4
+    sw x14, 92(x20)
+    or x3, x14, x3
+    sub x9, x3, x9
+    lw x2, 140(x20)
+    lw x2, 96(x20)
+    addi x16, x0, 2
+    addi x17, x0, 1
+    bge x16, x17, branch_target_15
+    addi x15, x15, 1
+    branch_target_15:
+    sw x14, 88(x20)
+    addi x16, x0, 1
+    addi x17, x0, 2
+    bge x16, x17, branch_target_16
+    addi x10, x10, 1
+    branch_target_16:
+    sw x10, 152(x20)
+    jal x31, helper
+    jal x31, helper
+    slt x12, x31, x6
+    addi x16, x0, 2
+    addi x17, x0, 1
+    bltu x16, x17, branch_target_17
+    addi x9, x9, 1
+    branch_target_17:
+    add x9, x9, x9
+    xor x5, x9, x15
+    jal x18, jal_target_18
+    addi x15, x15, 1
+    jal_target_18:
+    sw x18, 184(x20)
+    lw x13, 88(x20)
+    addi x11, x13, -92
+    sw x1, 212(x20)
+    sw x11, 108(x20)
+    jal x18, jal_target_19
+    addi x9, x9, 1
+    jal_target_19:
+    addi x16, x0, 5
+    addi x17, x0, 5
+    beq x16, x17, branch_target_20
+    addi x14, x14, 1
+    branch_target_20:
+    addi x16, x0, 1
+    addi x17, x0, 2
+    bgeu x16, x17, branch_target_21
+    addi x13, x13, 1
+    branch_target_21:
+    addi x16, x0, 1
+    addi x17, x0, 2
+    blt x16, x17, branch_target_22
+    addi x8, x8, 1
+    branch_target_22:
+    sltu x11, x8, x8
+    and x3, x11, x11
+    and x15, x3, x10
+    or x10, x15, x9
+    jal x18, jal_target_23
+    addi x6, x6, 1
+    jal_target_23:
+    addi x16, x0, 5
+    addi x17, x0, 5
+    beq x16, x17, branch_target_24
+    addi x2, x2, 1
+    branch_target_24:
+    lw x9, 240(x20)
+    addi x3, x9, -21
+    lw x14, 176(x20)
+    addi x15, x14, 21
+    addi x16, x0, 5
+    addi x17, x0, 5
+    bne x16, x17, branch_target_25
+    addi x15, x15, 1
+    branch_target_25:
+    srl x4, x2, x15
+    jal x31, helper
+    xor x5, x31, x1
+    addi x8, x5, 18
+    sw x1, 232(x20)
+    addi x2, x8, 29
+    srl x10, x2, x11
+    addi x16, x0, 1
+    addi x17, x0, 2
+    bge x16, x17, branch_target_26
+    addi x2, x2, 1
+    branch_target_26:
+    sll x13, x2, x13
+    jal x18, jal_target_27
+    addi x9, x9, 1
+    jal_target_27:
+    lw x2, 0(x20)
+    sw x2, 252(x20)
+    addi x12, x2, -68
+    jal x18, jal_target_28
+    addi x14, x14, 1
+    jal_target_28:
+    sw x4, 16(x20)
+    lw x6, 188(x20)
+    addi x12, x6, -68
+    sw x5, 124(x20)
+    lw x14, 236(x20)
+    addi x15, x14, -108
+    addi x16, x0, 2
+    addi x17, x0, 1
+    bgeu x16, x17, branch_target_29
+    addi x3, x3, 1
+    branch_target_29:
+    jal x18, jal_target_30
+    addi x10, x10, 1
+    jal_target_30:
+    lw x4, 124(x20)
+    addi x5, x4, -108
+    xor x10, x12, x8
+    jal x18, jal_target_31
+    addi x6, x6, 1
+    jal_target_31:
+    addi x15, x18, -68
+    and x14, x15, x10
+    lw x14, 88(x20)
+    addi x13, x14, -9
+    slt x1, x1, x2
+    srl x8, x5, x1
+    jal x18, jal_target_32
+    addi x7, x7, 1
+    jal_target_32:
+    jal x31, helper
+    xor x5, x31, x11
+    and x4, x12, x14
+    sw x4, 76(x20)
+    lw x7, 32(x20)
+    addi x3, x7, 114
+    sltu x12, x3, x5
+    slt x8, x12, x12
+    addi x16, x0, 5
+    addi x17, x0, 5
+    beq x16, x17, branch_target_33
+    addi x15, x15, 1
+    branch_target_33:
+    and x7, x15, x4
+    slt x5, x4, x15
+    or x11, x5, x9
+    srl x6, x11, x2
+    jal x31, helper
+    sw x31, 240(x20)
+    sub x1, x31, x31
+    lw x1, 108(x20)
+    addi x4, x1, -106
+    lw x15, 68(x20)
+    addi x16, x0, 2
+    addi x17, x0, 1
+    bge x16, x17, branch_target_34
+    addi x5, x5, 1
+    branch_target_34:
+    addi x16, x0, 1
+    addi x17, x0, 2
+    bltu x16, x17, branch_target_35
+    addi x1, x1, 1
+    branch_target_35:
+    add x7, x1, x2
+    jal x18, jal_target_36
+    addi x14, x14, 1
+    jal_target_36:
+    sw x18, 124(x20)
+    addi x16, x0, 2
+    addi x17, x0, 1
+    bltu x16, x17, branch_target_37
+    addi x15, x15, 1
+    branch_target_37:
+    slt x14, x15, x14
+    addi x16, x0, 2
+    addi x17, x0, 1
+    bgeu x16, x17, branch_target_38
+    addi x1, x1, 1
+    branch_target_38:
+    or x5, x1, x5
+    add x4, x8, x4
+    jal x18, jal_target_39
+    addi x1, x1, 1
+    jal_target_39:
+    sw x18, 108(x20)
+    lw x4, 44(x20)
+    srl x14, x7, x4
+    sub x7, x14, x15
+    addi x16, x0, 2
+    addi x17, x0, 1
+    bltu x16, x17, branch_target_40
+    addi x9, x9, 1
+    branch_target_40:
+    srl x4, x9, x15
+    xor x3, x4, x4
+    addi x2, x5, 115
+    sltu x5, x2, x8
+    addi x16, x0, 5
+    addi x17, x0, 5
+    bne x16, x17, branch_target_41
+    addi x1, x1, 1
+    branch_target_41:
+    slt x6, x1, x14
+    sw x6, 24(x20)
+    addi x16, x0, 1
+    addi x17, x0, 2
+    bge x16, x17, branch_target_42
+    addi x15, x15, 1
+    branch_target_42:
+    addi x16, x0, 5
+    addi x17, x0, 6
+    beq x16, x17, branch_target_43
+    addi x12, x12, 1
+    branch_target_43:
+    addi x16, x0, 5
+    addi x17, x0, 6
+    bne x16, x17, branch_target_44
+    addi x9, x9, 1
+    branch_target_44:
+    addi x16, x0, 1
+    addi x17, x0, 2
+    bltu x16, x17, branch_target_45
+    addi x6, x6, 1
+    branch_target_45:
+    sw x6, 220(x20)
+    sw x6, 80(x20)
+    addi x16, x0, 2
+    addi x17, x0, 1
+    bltu x16, x17, branch_target_46
+    addi x11, x11, 1
+    branch_target_46:
+    xor x14, x5, x14
 
 halt:
     jal x0, halt
+
+helper:
+    addi x19, x19, 1
+    jalr x0, 0(x31)
+

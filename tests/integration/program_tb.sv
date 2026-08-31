@@ -25,6 +25,9 @@ module program_tb #(
 
     byte uart_bytes[$];
 
+    logic halt_seen;
+    int unsigned drain_cycles;
+
 
     // ============================================================
     // DUT
@@ -84,6 +87,38 @@ module program_tb #(
         .wb_rd_addr      (dut.core_inst.wb_rd_addr),
 
         .x0              (dut.core_inst.regfile_inst.regs[0])
+    );
+
+    // Coverage inst
+    cpu_coverage coverage (
+        .clk                  (clk),
+        .rst                  (rst),
+
+        .id_ex_valid          (dut.core_inst.id_ex_valid),
+        .id_ex_rs1_addr       (dut.core_inst.id_ex_rs1_addr),
+        .id_ex_rs2_addr       (dut.core_inst.id_ex_rs2_addr),
+        .id_ex_rd_addr (dut.core_inst.id_ex_rd_addr),
+
+        .ex_mem_valid         (dut.core_inst.ex_mem_valid),
+        .ex_mem_reg_write_en  (dut.core_inst.ex_mem_reg_write_en),
+        .ex_mem_rd_addr       (dut.core_inst.ex_mem_rd_addr),
+
+        .mem_wb_valid         (dut.core_inst.mem_wb_valid),
+        .mem_wb_reg_write_en  (dut.core_inst.mem_wb_reg_write_en),
+        .mem_wb_rd_addr       (dut.core_inst.mem_wb_rd_addr),
+
+        .load_use_hazard      (dut.core_inst.load_use_hazard),
+
+        .ex_branch_taken      (dut.core_inst.ex_branch_taken),
+        .ex_take_branch       (dut.core_inst.ex_take_branch),
+        .ex_take_jump         (dut.core_inst.ex_take_jump),
+        .ex_take_jalr         (dut.core_inst.ex_take_jalr),
+        .ex_redirect          (dut.core_inst.ex_redirect),
+
+        .id_ex_mem_read_en    (dut.core_inst.id_ex_mem_read_en),
+        .id_ex_mem_write_en   (dut.core_inst.id_ex_mem_write_en),
+
+        .retire_valid         (dut.core_inst.retire_valid)
     );
 
 
@@ -203,6 +238,25 @@ module program_tb #(
     end
 
 
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            halt_seen    <= 1'b0;
+            drain_cycles <= 0;
+        end
+        else begin
+            if (
+                dut.core_inst.retire_valid &&
+                dut.core_inst.retire_instr == 32'h0000006f
+            ) begin
+                halt_seen <= 1'b1;
+            end
+
+            if (halt_seen)
+                drain_cycles <= drain_cycles + 1;
+        end
+    end
+
+
 
 
     // ============================================================
@@ -232,7 +286,22 @@ module program_tb #(
         /*
          * Let the program execute.
          */
-        wait_clocks(RUN_CYCLES);
+        for (int cycle = 0; cycle < RUN_CYCLES; cycle++) begin
+            @(posedge clk);
+            #1;
+
+            if (halt_seen && drain_cycles >= 5)
+                break;
+        end
+
+        if (!halt_seen) begin
+            $error(
+                "Program did not reach halt within %0d cycles",
+                RUN_CYCLES
+            );
+
+            failures++;
+        end
 
 
         // ========================================================
