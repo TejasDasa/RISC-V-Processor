@@ -283,6 +283,23 @@ Randomized ALU regressions currently exercise:
 
 Randomized load/store and memory-state differential checking are currently being added.
 
+## Waveform Demos
+
+Seven short, self-checking programs produce focused waveforms of
+individual pipeline behaviours on the real SoC: forwarding, the
+load-use stall, branch flush, JAL/JALR call-return, store-data
+forwarding, a precise timer interrupt with MRET, and a preemptive
+two-task context switch. Each waveform shows per-stage disassembly
+and forwarding-source signals, and comes with a GTKWave save file.
+
+```bash
+./scripts/run_all_waveforms.sh
+gtkwave waves/02_load_use_stall.vcd tests/waveforms/gtkw/02_load_use_stall.gtkw
+```
+
+See [tests/waveforms/README.md](tests/waveforms/README.md) for what
+each waveform shows and which signals to look at.
+
 ---
 
 # Software Build and Verification Flow

@@ -1,0 +1,8 @@
+`verilator_config
+
+// Only wave_tb / wave_probe are traced. The RTL and the checker
+// modules are excluded so each waveform contains just the curated
+// demo signals.
+tracing_off -file "*rtl/*"
+tracing_off -file "*tests/uvm_like/*"
+tracing_off -file "*tests/waveforms/rv_disasm_pkg.sv"
