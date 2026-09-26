@@ -7,7 +7,8 @@
 # Trap entry: MPIE <= MIE, MIE <= 0
 # MRET:       MIE  <= MPIE, MPIE <= 1, PC <= mepc
 #
-# mstatus.MIE = bit 3 (0x08), mstatus.MPIE = bit 7 (0x80).
+# mstatus.MIE = bit 3 (0x08), mstatus.MPIE = bit 7 (0x80),
+# mstatus.MPP = bits 12:11, hardwired to M (0x1800).
 # No interrupt source is enabled, so MIE=1 is harmless here.
 # ============================================================
 
@@ -24,10 +25,10 @@ _start:
 
     addi  x6, x0, 8
     csrs  mstatus, x6
-    csrr  x7, mstatus           # 0x08
+    csrr  x7, mstatus           # 0x1808
 
-    ecall                       # handler: x8 = 0x80
-    csrr  x9, mstatus           # after MRET: MIE=1, MPIE=1 -> 0x88
+    ecall                       # handler: x8 = 0x1880
+    csrr  x9, mstatus           # after MRET: MIE=1, MPIE=1 -> 0x1888
 
 
     # ----------------------------------------------------------
@@ -36,8 +37,8 @@ _start:
 
     csrw  mstatus, x0
 
-    ecall                       # handler: x10 = 0x00
-    csrr  x11, mstatus          # after MRET: MIE=0, MPIE=1 -> 0x80
+    ecall                       # handler: x10 = 0x1800
+    csrr  x11, mstatus          # after MRET: MIE=0, MPIE=1 -> 0x1880
 
 
     # ----------------------------------------------------------
@@ -55,7 +56,7 @@ _start:
 
 mret_target:
     addi  x15, x0, 0x15
-    csrr  x16, mstatus          # MIE=MPIE(1), MPIE=1 -> 0x88
+    csrr  x16, mstatus          # MIE=MPIE(1), MPIE=1 -> 0x1888
 
     csrw  mstatus, x0
 

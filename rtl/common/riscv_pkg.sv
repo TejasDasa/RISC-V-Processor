@@ -17,7 +17,8 @@ package riscv_pkg;
   // CSR Operations DEF
   typedef enum logic [3:0] {
     CSR_RW,
-    CSR_RS
+    CSR_RS,
+    CSR_RC
    } csr_op_t;
 
   // Imm Type DEF

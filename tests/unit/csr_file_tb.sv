@@ -207,9 +207,10 @@ module csr_file_tb;
         1'b1
     );
 
+    // MPP reads as M-mode (0x1800).
     read_csr(
         CSR_MSTATUS,
-        32'h0000_0008,
+        32'h0000_1808,
         "mstatus readback"
     );
 

@@ -154,7 +154,9 @@ handler:
     or    x27, x27, x28         # mcause must be 0x8000_0007
 
     csrr  x28, mstatus
-    xori  x28, x28, 0x80
+    lui   x29, 0x2
+    addi  x29, x29, -0x780      # 0x1880 = MPP(M) | MPIE
+    xor   x28, x28, x29
     or    x27, x27, x28         # in handler: MIE=0, MPIE=1
 
     csrr  x28, mepc

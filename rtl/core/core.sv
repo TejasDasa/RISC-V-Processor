@@ -136,6 +136,7 @@ module core #(
     logic id_jump_en;
     logic id_jump_reg_en;
     logic id_csr_write_en;
+    logic id_csr_imm;
     logic id_mret;
     logic id_ecall;
     logic id_illegal_instr;
@@ -167,6 +168,7 @@ module core #(
         .jump_en          (id_jump_en),
         .jump_reg_en      (id_jump_reg_en),
         .csr_write_en     (id_csr_write_en),
+        .csr_imm          (id_csr_imm),
         .mret             (id_mret),
         .ecall            (id_ecall),
         .illegal_instr    (id_illegal_instr)
@@ -265,6 +267,7 @@ module core #(
 
     csr_op_t      id_ex_csr_op;
     logic         id_ex_csr_write_en;
+    logic         id_ex_csr_imm;
     logic [11:0]  id_ex_csr_addr;
 
     logic         id_ex_mret;
@@ -373,6 +376,7 @@ module core #(
 
             id_ex_csr_op       <= id_csr_op;
             id_ex_csr_write_en <= id_csr_write_en;
+            id_ex_csr_imm      <= id_csr_imm;
             id_ex_csr_addr     <= if_id_instr[31:20];
 
             id_ex_mret          <= id_mret;
@@ -563,19 +567,38 @@ module core #(
     logic [31:0] trap_pc;
     logic [31:0] trap_cause;
 
+    logic        csr_addr_valid;
+    logic [31:0] csr_src;
+    logic        ex_csr_illegal;
+
+    // Immediate forms use zimm (the rs1 field, zero-extended).
+    assign csr_src =
+        id_ex_csr_imm
+            ? {27'b0, id_ex_rs1_addr}
+            : ex_rs1_forwarded;
+
     always_comb begin
         unique case (id_ex_csr_op)
             CSR_RW:
-                csr_write_data = ex_rs1_forwarded;
+                csr_write_data = csr_src;
 
             CSR_RS:
                 csr_write_data =
-                    csr_read_data | ex_rs1_forwarded;
+                    csr_read_data | csr_src;
+
+            CSR_RC:
+                csr_write_data =
+                    csr_read_data & ~csr_src;
 
             default:
                 csr_write_data = 32'd0;
         endcase
     end
+
+    // A CSR instruction naming an unimplemented CSR is illegal.
+    assign ex_csr_illegal =
+        id_ex_csr_write_en &&
+        !csr_addr_valid;
 
     // ------------------------------------------------------------
     // EX COMMIT CONTROL
@@ -608,9 +631,15 @@ module core #(
     logic ex_trap;
     logic ex_commit;
 
+    logic ex_illegal;
+
+    assign ex_illegal =
+        id_ex_illegal_instr ||
+        ex_csr_illegal;
+
     assign ex_exception =
         id_ex_valid &&
-        (id_ex_ecall || id_ex_illegal_instr);
+        (id_ex_ecall || ex_illegal);
 
     assign ex_irq =
         id_ex_valid &&
@@ -628,7 +657,9 @@ module core #(
     assign csr_actual_write_en =
         ex_commit &&
         id_ex_csr_write_en &&
-        !((id_ex_csr_op == CSR_RS) &&
+        // CSRRS/CSRRC(I) with rs1 field = 0 (x0 or zimm=0) must not
+        // write (no write side effects); CSRRW(I) always writes.
+        !(((id_ex_csr_op == CSR_RS) || (id_ex_csr_op == CSR_RC)) &&
           (id_ex_rs1_addr == 5'd0));
 
     csr_file csr_file_inst (
@@ -639,6 +670,7 @@ module core #(
         .csr_write_en      (csr_actual_write_en),
         .csr_write_data    (csr_write_data),
         .csr_read_data     (csr_read_data),
+        .csr_addr_valid    (csr_addr_valid),
 
         .timer_irq         (cpu_irq),
 
@@ -737,7 +769,7 @@ module core #(
             trap_cause = 32'h8000_0007;
         else if (id_ex_ecall)
             trap_cause = 32'h0000_000B;
-        else if (id_ex_illegal_instr)
+        else if (ex_illegal)
             trap_cause = 32'h0000_0002;
     end
 
