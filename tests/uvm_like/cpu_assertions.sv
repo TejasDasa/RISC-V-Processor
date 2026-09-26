@@ -9,6 +9,9 @@ module cpu_assertions (
     input logic        trap_enter,
     input logic [31:0] mtvec,
 
+    input logic        ex_take_mret,
+    input logic [31:0] mepc,
+
     input logic [31:0] pc_current,
 
     input logic        id_ex_valid,
@@ -129,6 +132,14 @@ module cpu_assertions (
             ($past(trap_enter, 1) ||
              $past(trap_enter, 2) ||
              $past(trap_enter, 3)) |-> !ex_mem_valid
+        );
+
+    // A committing MRET always redirects to mepc.
+    ap_mret_target:
+        assert property (@(posedge clk)
+            disable iff (rst)
+            (ex_take_mret && !trap_enter) |->
+                (ex_redirect && (ex_redirect_pc == mepc))
         );
 
 endmodule

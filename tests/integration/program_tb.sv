@@ -78,6 +78,9 @@ module program_tb #(
         .trap_enter      (dut.core_inst.trap_enter),
         .mtvec           (dut.core_inst.mtvec),
 
+        .ex_take_mret    (dut.core_inst.ex_take_mret),
+        .mepc            (dut.core_inst.mepc),
+
         .pc_current      (dut.core_inst.pc_current),
 
         .id_ex_valid     (dut.core_inst.id_ex_valid),

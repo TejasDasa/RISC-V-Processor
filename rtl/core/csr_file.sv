@@ -138,20 +138,26 @@ module csr_file (
 
       // --------------------------------------------------------
       // Hardware trap entry
+      //
+      // Stack the interrupt enable: MPIE <= MIE, MIE <= 0.
       // --------------------------------------------------------
 
       if (trap_enter) begin
         mepc        <= trap_pc;
         mcause      <= trap_cause;
+        mstatus[7]  <= mstatus[3];
         mstatus[3]  <= 1'b0;
       end
 
       // --------------------------------------------------------
       // MRET
+      //
+      // Unstack the interrupt enable: MIE <= MPIE, MPIE <= 1.
       // --------------------------------------------------------
 
       if (mret) begin
-        mstatus[3] <= 1'b1;
+        mstatus[3] <= mstatus[7];
+        mstatus[7] <= 1'b1;
       end
 
     end

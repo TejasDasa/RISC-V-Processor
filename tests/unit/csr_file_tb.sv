@@ -324,7 +324,8 @@ module csr_file_tb;
     // ----------------------------------------------------------
     // MRET
     //
-    // Current simplified design restores MIE directly to 1.
+    // MIE <= MPIE. MIE was 1 before the trap, so trap entry
+    // saved MPIE=1 and MRET restores MIE=1.
     // ----------------------------------------------------------
 
     mret = 1'b1;
