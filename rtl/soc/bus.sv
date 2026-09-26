@@ -29,9 +29,9 @@ module bus #(
     output logic [31:0] timer_write_data,
 
     // GPIO interface
-    output logic gpio_write_en,
-    output logic gpio_write_data,
-    input logic gpio_read_data
+    output logic        gpio_write_en,
+    output logic [31:0] gpio_write_data,
+    input  logic [31:0] gpio_read_data
 );
 
   import soc_pkg::*;

@@ -5,3 +5,5 @@ software/build/
 obj_dir_program/
 tests/random/generated/
 *.log
+obj_dir_wave/
+waves/

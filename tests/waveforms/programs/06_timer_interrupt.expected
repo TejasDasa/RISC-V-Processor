@@ -1,0 +1,5 @@
+# Every sled increment executed exactly once
+x10=8
+x20=0x80000007
+# mepc = 4th sled instruction (killed in EX, re-executed after MRET)
+x21=0x4c
