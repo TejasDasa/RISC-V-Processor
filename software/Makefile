@@ -234,6 +234,7 @@ sim: all
 	verilator \
 		--binary \
 		--timing \
+		--assert \
 		--Mdir $(SIM_BUILD_DIR) \
 		-GPROGRAM_HEX="\"$(IMEM_HEX)\"" \
 		-GPROGRAM_DMEM_HEX="\"$(DMEM_HEX)\"" \

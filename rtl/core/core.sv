@@ -53,10 +53,16 @@ module core #(
             pc_next = if_pc_plus_4;
     end
 
+    // Priority: reset > EX redirect (trap / mret / jump / branch)
+    // > load-use stall. A redirect kills the stalled ID instruction,
+    // so the PC must load the redirect target even while stalled.
+    logic pc_we;
+    assign pc_we = ex_redirect || !load_use_hazard;
+
     pc pc_inst (
         .clk     (clk),
         .rst     (rst),
-        .pc_we   (!load_use_hazard),
+        .pc_we   (pc_we),
         .next_pc (pc_next),
         .pc      (pc_current)
     );

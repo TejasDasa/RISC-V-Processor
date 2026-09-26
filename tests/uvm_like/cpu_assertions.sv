@@ -4,6 +4,7 @@ module cpu_assertions (
 
     input logic        load_use_hazard,
     input logic        ex_redirect,
+    input logic [31:0] ex_redirect_pc,
 
     input logic [31:0] pc_current,
 
@@ -92,6 +93,14 @@ module cpu_assertions (
         assert property (@(posedge clk)
             disable iff (rst)
             ex_redirect |=> !id_ex_valid
+        );
+
+    // A redirect always reaches the PC, even when it coincides
+    // with a load-use stall (redirect has priority over stall).
+    ap_redirect_target:
+        assert property (@(posedge clk)
+            disable iff (rst)
+            ex_redirect |=> (pc_current == $past(ex_redirect_pc))
         );
 
 endmodule

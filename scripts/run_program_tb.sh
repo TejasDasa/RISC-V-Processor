@@ -31,6 +31,7 @@ fi
 verilator \
   --binary \
   --timing \
+  --assert \
   -GPROGRAM_HEX="\"${IMEM_HEX_FILE}\"" \
   -GPROGRAM_DMEM_HEX="\"${DMEM_HEX_FILE}\"" \
   -Wall \
@@ -53,6 +54,7 @@ verilator \
   rtl/soc/gpio.sv \
   tests/uvm_like/cpu_monitor.sv \
   tests/uvm_like/cpu_assertions.sv \
+  tests/uvm_like/cpu_coverage.sv \
   rtl/soc/interrupt_controller.sv \
   rtl/soc/bus.sv \
   rtl/core/core.sv \

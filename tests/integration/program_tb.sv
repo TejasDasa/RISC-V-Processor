@@ -73,6 +73,7 @@ module program_tb #(
 
         .load_use_hazard (dut.core_inst.load_use_hazard),
         .ex_redirect     (dut.core_inst.ex_redirect),
+        .ex_redirect_pc  (dut.core_inst.ex_redirect_pc),
 
         .pc_current      (dut.core_inst.pc_current),
 
