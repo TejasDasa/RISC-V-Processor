@@ -6,6 +6,9 @@ module cpu_assertions (
     input logic        ex_redirect,
     input logic [31:0] ex_redirect_pc,
 
+    input logic        trap_enter,
+    input logic [31:0] mtvec,
+
     input logic [31:0] pc_current,
 
     input logic        id_ex_valid,
@@ -101,6 +104,31 @@ module cpu_assertions (
         assert property (@(posedge clk)
             disable iff (rst)
             ex_redirect |=> (pc_current == $past(ex_redirect_pc))
+        );
+
+
+    // ------------------------------------------------------------
+    // Precise traps
+    // ------------------------------------------------------------
+
+    // Trap entry always redirects to mtvec.
+    ap_trap_target:
+        assert property (@(posedge clk)
+            disable iff (rst)
+            trap_enter |-> (ex_redirect && (ex_redirect_pc == mtvec))
+        );
+
+    // The trapping instruction never reaches MEM, and neither does
+    // any younger (wrong-path) instruction: the next instruction to
+    // enter MEM is at the earliest the first handler instruction,
+    // which needs three cycles (IF, ID, EX) after the redirect.
+    ap_trap_no_younger_commit:
+        assert property (@(posedge clk)
+            disable iff (rst)
+            // (Verilator lacks [*n] / ##n, so look back with $past.)
+            ($past(trap_enter, 1) ||
+             $past(trap_enter, 2) ||
+             $past(trap_enter, 3)) |-> !ex_mem_valid
         );
 
 endmodule

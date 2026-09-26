@@ -561,11 +561,35 @@ module core #(
         endcase
     end
 
-    assign csr_actual_write_en =
+    // ------------------------------------------------------------
+    // EX COMMIT CONTROL
+    //
+    // EX is the single commit point for privileged side effects:
+    // nothing in MEM/WB can fault, so once an instruction leaves EX
+    // it is guaranteed to retire.
+    //
+    // ex_trap   : the EX instruction takes a trap this cycle. It is
+    //             killed, mepc/mcause are written, older MEM/WB
+    //             instructions drain, and IF/ID + ID/EX are flushed.
+    // ex_commit : the EX instruction is valid and not trapping. Only
+    //             committing instructions may write CSRs, update
+    //             mstatus via MRET, or proceed to MEM/WB.
+    // ------------------------------------------------------------
+
+    logic ex_trap;
+    logic ex_commit;
+
+    assign ex_trap =
         id_ex_valid &&
+        (id_ex_ecall || id_ex_illegal_instr);
+
+    assign ex_commit =
+        id_ex_valid &&
+        !ex_trap;
+
+    assign csr_actual_write_en =
+        ex_commit &&
         id_ex_csr_write_en &&
-        !id_ex_ecall &&
-        !id_ex_illegal_instr &&
         !((id_ex_csr_op == CSR_RS) &&
           (id_ex_rs1_addr == 5'd0));
 
@@ -584,7 +608,7 @@ module core #(
         .trap_pc           (trap_pc),
         .trap_cause        (trap_cause),
 
-        .mret              (id_ex_valid && id_ex_mret),
+        .mret              (ex_commit && id_ex_mret),
 
         .mtvec             (mtvec),
         .mepc              (mepc),
@@ -630,7 +654,8 @@ module core #(
         ex_redirect    = 1'b0;
         ex_redirect_pc = 32'b0;
 
-        if (ex_take_exception) begin
+        // Priority: trap > mret > jalr > jal > branch.
+        if (ex_trap) begin
             ex_redirect    = 1'b1;
             ex_redirect_pc = mtvec;
         end
@@ -659,17 +684,12 @@ module core #(
     // ============================================================
 
     assign trap_enter =
-        id_ex_valid &&
-        (id_ex_ecall || id_ex_illegal_instr);
+        ex_trap;
 
-    always_comb begin
-        trap_pc = 32'b0;
-
-        if (id_ex_ecall)
-            trap_pc = id_ex_pc_plus_4;
-        else if (id_ex_illegal_instr)
-            trap_pc = id_ex_pc;
-    end
+    // Synchronous exceptions: mepc = PC of the trapping instruction.
+    // (ECALL handlers advance mepc by 4 in software.)
+    assign trap_pc =
+        id_ex_pc;
 
     always_comb begin
         trap_cause = 32'b0;
@@ -705,9 +725,7 @@ module core #(
         end
         else begin
             ex_mem_valid <=
-                id_ex_valid &&
-                !id_ex_ecall &&
-                !id_ex_illegal_instr;
+                ex_commit;
 
             // Carry instruction identity forward.
             ex_mem_pc    <= id_ex_pc;
@@ -722,23 +740,17 @@ module core #(
             ex_mem_rd_addr <= id_ex_rd_addr;
 
             ex_mem_reg_write_en <=
-                id_ex_valid &&
-                !id_ex_ecall &&
-                !id_ex_illegal_instr &&
+                ex_commit &&
                 id_ex_reg_write_en;
 
             ex_mem_wb_sel <= id_ex_wb_sel;
 
             ex_mem_mem_read_en <=
-                id_ex_valid &&
-                !id_ex_ecall &&
-                !id_ex_illegal_instr &&
+                ex_commit &&
                 id_ex_mem_read_en;
 
             ex_mem_mem_write_en <=
-                id_ex_valid &&
-                !id_ex_ecall &&
-                !id_ex_illegal_instr &&
+                ex_commit &&
                 id_ex_mem_write_en;
 
             ex_mem_load_type  <= id_ex_load_type;

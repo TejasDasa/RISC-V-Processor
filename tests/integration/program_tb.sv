@@ -75,6 +75,9 @@ module program_tb #(
         .ex_redirect     (dut.core_inst.ex_redirect),
         .ex_redirect_pc  (dut.core_inst.ex_redirect_pc),
 
+        .trap_enter      (dut.core_inst.trap_enter),
+        .mtvec           (dut.core_inst.mtvec),
+
         .pc_current      (dut.core_inst.pc_current),
 
         .id_ex_valid     (dut.core_inst.id_ex_valid),
