@@ -16,8 +16,9 @@ static void enable_interrupts(void)
         "li t0, 0x80\n"
         "csrs mie, t0\n"
 
-        "li t0, 0x8\n"
-        "csrs mstatus, t0\n"
+        // mstatus.MIE is enabled by the MRET in
+        // context_start_preemptive (via MPIE), so no tick can
+        // arrive mid context restore.
         :
         :
         : "t0"

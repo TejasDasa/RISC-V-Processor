@@ -81,6 +81,13 @@ module program_tb #(
         .ex_take_mret    (dut.core_inst.ex_take_mret),
         .mepc            (dut.core_inst.mepc),
 
+        .trap_cause        (dut.core_inst.trap_cause),
+        .global_irq_enable (dut.core_inst.global_irq_enable),
+        .timer_irq_enable  (dut.core_inst.timer_irq_enable),
+        .timer_irq_pending (dut.core_inst.timer_irq_pending),
+
+        .id_ex_pc        (dut.core_inst.id_ex_pc),
+
         .pc_current      (dut.core_inst.pc_current),
 
         .id_ex_valid     (dut.core_inst.id_ex_valid),
@@ -125,7 +132,10 @@ module program_tb #(
         .id_ex_mem_read_en    (dut.core_inst.id_ex_mem_read_en),
         .id_ex_mem_write_en   (dut.core_inst.id_ex_mem_write_en),
 
-        .retire_valid         (dut.core_inst.retire_valid)
+        .retire_valid         (dut.core_inst.retire_valid),
+
+        .trap_enter           (dut.core_inst.trap_enter),
+        .ex_irq               (dut.core_inst.ex_irq)
     );
 
 

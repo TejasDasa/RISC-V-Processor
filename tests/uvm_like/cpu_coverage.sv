@@ -29,8 +29,74 @@ module cpu_coverage (
     input logic id_ex_mem_write_en,
 
     // Retirement
-    input logic retire_valid
+    input logic retire_valid,
+
+    // Traps / interrupts
+    input logic trap_enter,
+    input logic ex_irq
 );
+
+    // ============================================================
+    // Trap / interrupt coverage
+    //
+    // Which pipeline situation each interrupt killed in EX.
+    // ============================================================
+
+    int unsigned count_trap;
+    int unsigned count_irq;
+    int unsigned count_irq_load_use;
+    int unsigned count_irq_branch;
+    int unsigned count_irq_jump;
+    int unsigned count_irq_load;
+    int unsigned count_irq_store;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            count_trap         <= 0;
+            count_irq          <= 0;
+            count_irq_load_use <= 0;
+            count_irq_branch   <= 0;
+            count_irq_jump     <= 0;
+            count_irq_load     <= 0;
+            count_irq_store    <= 0;
+        end
+        else begin
+            if (trap_enter)
+                count_trap <= count_trap + 1;
+
+            if (ex_irq)
+                count_irq <= count_irq + 1;
+
+            if (ex_irq && load_use_hazard)
+                count_irq_load_use <= count_irq_load_use + 1;
+
+            if (ex_irq && ex_take_branch)
+                count_irq_branch <= count_irq_branch + 1;
+
+            if (ex_irq && (ex_take_jump || ex_take_jalr))
+                count_irq_jump <= count_irq_jump + 1;
+
+            if (ex_irq && id_ex_mem_read_en)
+                count_irq_load <= count_irq_load + 1;
+
+            if (ex_irq && id_ex_mem_write_en)
+                count_irq_store <= count_irq_store + 1;
+        end
+    end
+
+    final begin
+        $display("");
+        $display("========================================");
+        $display(" TRAP / INTERRUPT COVERAGE");
+        $display("========================================");
+        $display("Traps taken              : %0d", count_trap);
+        $display("Interrupts taken         : %0d", count_irq);
+        $display("IRQ during load-use stall: %0d", count_irq_load_use);
+        $display("IRQ killing taken branch : %0d", count_irq_branch);
+        $display("IRQ killing JAL/JALR     : %0d", count_irq_jump);
+        $display("IRQ killing load         : %0d", count_irq_load);
+        $display("IRQ killing store        : %0d", count_irq_store);
+    end
 
     // ============================================================
     // Derived events

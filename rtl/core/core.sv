@@ -574,14 +574,36 @@ module core #(
     // ex_commit : the EX instruction is valid and not trapping. Only
     //             committing instructions may write CSRs, update
     //             mstatus via MRET, or proceed to MEM/WB.
+    // ex_irq    : take the machine timer interrupt on the valid EX
+    //             instruction. That instruction is killed and becomes
+    //             mepc, so it re-executes after MRET. Bubbles are not
+    //             interruptible (they have no PC); the interrupt then
+    //             waits for the next valid instruction to reach EX.
+    //             The decision uses CSR state from before this
+    //             instruction, which is consistent because the
+    //             instruction itself is killed.
+    //
+    // Interrupts take priority over synchronous exceptions and over
+    // any branch / jump / MRET / load-use stall in the same cycle.
     // ------------------------------------------------------------
 
+    logic ex_exception;
+    logic ex_irq;
     logic ex_trap;
     logic ex_commit;
 
-    assign ex_trap =
+    assign ex_exception =
         id_ex_valid &&
         (id_ex_ecall || id_ex_illegal_instr);
+
+    assign ex_irq =
+        id_ex_valid &&
+        global_irq_enable &&
+        timer_irq_enable &&
+        timer_irq_pending;
+
+    assign ex_trap =
+        ex_exception || ex_irq;
 
     assign ex_commit =
         id_ex_valid &&
@@ -647,8 +669,7 @@ module core #(
         id_ex_mret;
 
     assign ex_take_exception =
-        id_ex_valid &&
-        (id_ex_ecall || id_ex_illegal_instr);
+        ex_exception;
 
     always_comb begin
         ex_redirect    = 1'b0;
@@ -686,15 +707,19 @@ module core #(
     assign trap_enter =
         ex_trap;
 
-    // Synchronous exceptions: mepc = PC of the trapping instruction.
-    // (ECALL handlers advance mepc by 4 in software.)
+    // mepc = PC of the EX instruction for both cases:
+    //   exception : the faulting instruction (ECALL handlers
+    //               advance mepc by 4 in software)
+    //   interrupt : the killed instruction, i.e. the resume PC
     assign trap_pc =
         id_ex_pc;
 
     always_comb begin
         trap_cause = 32'b0;
 
-        if (id_ex_ecall)
+        if (ex_irq)
+            trap_cause = 32'h8000_0007;
+        else if (id_ex_ecall)
             trap_cause = 32'h0000_000B;
         else if (id_ex_illegal_instr)
             trap_cause = 32'h0000_0002;

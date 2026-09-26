@@ -34,6 +34,7 @@ verilator \
   --assert \
   -GPROGRAM_HEX="\"${IMEM_HEX_FILE}\"" \
   -GPROGRAM_DMEM_HEX="\"${DMEM_HEX_FILE}\"" \
+  -GRUN_CYCLES="${RUN_CYCLES:-10000}" \
   -Wall \
   -Wno-fatal \
   -DTRACE_RETIRE \

@@ -12,9 +12,15 @@ module cpu_assertions (
     input logic        ex_take_mret,
     input logic [31:0] mepc,
 
+    input logic [31:0] trap_cause,
+    input logic        global_irq_enable,
+    input logic        timer_irq_enable,
+    input logic        timer_irq_pending,
+
     input logic [31:0] pc_current,
 
     input logic        id_ex_valid,
+    input logic [31:0] id_ex_pc,
     input logic        ex_mem_valid,
     input logic        mem_wb_valid,
 
@@ -75,11 +81,12 @@ module cpu_assertions (
     // Load-use hazard behavior
     // ------------------------------------------------------------
 
-    // A load-use hazard must freeze the PC.
+    // A load-use hazard must freeze the PC, unless an EX redirect
+    // (e.g. an interrupt taken on the load) overrides the stall.
     ap_load_use_pc_stall:
         assert property (@(posedge clk)
             disable iff (rst)
-            load_use_hazard |=> $stable(pc_current)
+            (load_use_hazard && !ex_redirect) |=> $stable(pc_current)
         );
 
     // A load-use hazard must inject a bubble into EX.
@@ -132,6 +139,43 @@ module cpu_assertions (
             ($past(trap_enter, 1) ||
              $past(trap_enter, 2) ||
              $past(trap_enter, 3)) |-> !ex_mem_valid
+        );
+
+    // Traps are only taken on a valid EX instruction, and mepc
+    // captures that instruction's PC.
+    ap_trap_on_valid:
+        assert property (@(posedge clk)
+            disable iff (rst)
+            trap_enter |-> id_ex_valid
+        );
+
+    ap_trap_mepc:
+        assert property (@(posedge clk)
+            disable iff (rst)
+            trap_enter |=> (mepc == $past(id_ex_pc))
+        );
+
+
+    // ------------------------------------------------------------
+    // Interrupts
+    // ------------------------------------------------------------
+
+    // An interrupt is only taken when MIE, MTIE and MTIP are set.
+    ap_irq_only_when_enabled:
+        assert property (@(posedge clk)
+            disable iff (rst)
+            (trap_enter && trap_cause[31]) |->
+                (global_irq_enable && timer_irq_enable && timer_irq_pending)
+        );
+
+    // An enabled, pending interrupt is never skipped at a valid
+    // instruction boundary, and it wins over any exception there.
+    ap_irq_not_missed:
+        assert property (@(posedge clk)
+            disable iff (rst)
+            (id_ex_valid && global_irq_enable &&
+             timer_irq_enable && timer_irq_pending) |->
+                (trap_enter && (trap_cause == 32'h8000_0007))
         );
 
     // A committing MRET always redirects to mepc.
