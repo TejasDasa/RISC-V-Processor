@@ -5,6 +5,11 @@ context_start_preemptive:
 
     mv sp, a0
 
+    # MRET copies MPIE into MIE, so set MPIE to start the first
+    # task with interrupts enabled. t0 is restored from the frame.
+    li   t0, 0x80
+    csrs mstatus, t0
+
     lw   t0, 120(sp)
     csrw mepc, t0
 

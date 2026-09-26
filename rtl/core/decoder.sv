@@ -22,7 +22,8 @@ module decoder (
     output logic mem_write_en,
     output logic jump_en,
     output logic jump_reg_en,
-    output logic csr_write_en,
+    output logic csr_write_en,   // CSR instruction (actual write decided in EX)
+    output logic csr_imm,        // source is zimm = rs1 field, not rs1 register
     output logic mret,
     output logic ecall
 );
@@ -62,6 +63,7 @@ module decoder (
     jump_reg_en = 1'b0;
 
     csr_write_en = 1'b0;
+    csr_imm = 1'b0;
     mret = 1'b0;
     ecall = 1'b0;
 
@@ -91,6 +93,41 @@ module decoder (
 
                 FUNCT3_CSRRS: begin
                     csr_op         = CSR_RS;
+                    wb_sel         = WB_CSR;
+                    csr_write_en   = 1'b1;
+                    reg_write_en   = 1'b1;
+                    illegal_instr  = 1'b0;
+                end
+
+                FUNCT3_CSRRC: begin
+                    csr_op         = CSR_RC;
+                    wb_sel         = WB_CSR;
+                    csr_write_en   = 1'b1;
+                    reg_write_en   = 1'b1;
+                    illegal_instr  = 1'b0;
+                end
+
+                FUNCT3_CSRRWI: begin
+                    csr_op         = CSR_RW;
+                    csr_imm        = 1'b1;
+                    wb_sel         = WB_CSR;
+                    csr_write_en   = 1'b1;
+                    reg_write_en   = 1'b1;
+                    illegal_instr  = 1'b0;
+                end
+
+                FUNCT3_CSRRSI: begin
+                    csr_op         = CSR_RS;
+                    csr_imm        = 1'b1;
+                    wb_sel         = WB_CSR;
+                    csr_write_en   = 1'b1;
+                    reg_write_en   = 1'b1;
+                    illegal_instr  = 1'b0;
+                end
+
+                FUNCT3_CSRRCI: begin
+                    csr_op         = CSR_RC;
+                    csr_imm        = 1'b1;
                     wb_sel         = WB_CSR;
                     csr_write_en   = 1'b1;
                     reg_write_en   = 1'b1;

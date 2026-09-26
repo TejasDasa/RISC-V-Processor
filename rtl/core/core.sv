@@ -21,7 +21,13 @@ module core #(
     output logic [31:0] retire_instr,
     output logic        retire_reg_write,
     output logic [4:0]  retire_rd,
-    output logic [31:0] retire_rd_data
+    output logic [31:0] retire_rd_data,
+
+    // Trap events: the instruction at retire_pc/retire_instr was
+    // killed by a trap instead of retiring (retire_valid is low).
+    output logic        retire_exception,
+    output logic        retire_interrupt,
+    output logic [31:0] retire_cause
 );
 
     import riscv_pkg::*;
@@ -53,10 +59,16 @@ module core #(
             pc_next = if_pc_plus_4;
     end
 
+    // Priority: reset > EX redirect (trap / mret / jump / branch)
+    // > load-use stall. A redirect kills the stalled ID instruction,
+    // so the PC must load the redirect target even while stalled.
+    logic pc_we;
+    assign pc_we = ex_redirect || !load_use_hazard;
+
     pc pc_inst (
         .clk     (clk),
         .rst     (rst),
-        .pc_we   (!load_use_hazard),
+        .pc_we   (pc_we),
         .next_pc (pc_next),
         .pc      (pc_current)
     );
@@ -124,6 +136,7 @@ module core #(
     logic id_jump_en;
     logic id_jump_reg_en;
     logic id_csr_write_en;
+    logic id_csr_imm;
     logic id_mret;
     logic id_ecall;
     logic id_illegal_instr;
@@ -155,6 +168,7 @@ module core #(
         .jump_en          (id_jump_en),
         .jump_reg_en      (id_jump_reg_en),
         .csr_write_en     (id_csr_write_en),
+        .csr_imm          (id_csr_imm),
         .mret             (id_mret),
         .ecall            (id_ecall),
         .illegal_instr    (id_illegal_instr)
@@ -253,6 +267,7 @@ module core #(
 
     csr_op_t      id_ex_csr_op;
     logic         id_ex_csr_write_en;
+    logic         id_ex_csr_imm;
     logic [11:0]  id_ex_csr_addr;
 
     logic         id_ex_mret;
@@ -361,6 +376,7 @@ module core #(
 
             id_ex_csr_op       <= id_csr_op;
             id_ex_csr_write_en <= id_csr_write_en;
+            id_ex_csr_imm      <= id_csr_imm;
             id_ex_csr_addr     <= if_id_instr[31:20];
 
             id_ex_mret          <= id_mret;
@@ -388,6 +404,12 @@ module core #(
     logic [31:0] ex_mem_pc_plus_4;
     logic [31:0] ex_mem_csr_read_data;
 
+    // Trap event for the instruction killed in EX (debug only;
+    // ex_mem_valid stays low so it has no side effects).
+    logic        ex_mem_trap;
+    logic        ex_mem_trap_irq;
+    logic [31:0] ex_mem_trap_cause;
+
     logic [4:0]  ex_mem_rd_addr;
 
     logic        ex_mem_reg_write_en;
@@ -407,6 +429,10 @@ module core #(
     logic [31:0] mem_wb_load_result;
     logic [31:0] mem_wb_pc_plus_4;
     logic [31:0] mem_wb_csr_read_data;
+
+    logic        mem_wb_trap;
+    logic        mem_wb_trap_irq;
+    logic [31:0] mem_wb_trap_cause;
 
     logic [4:0]  mem_wb_rd_addr;
 
@@ -541,26 +567,99 @@ module core #(
     logic [31:0] trap_pc;
     logic [31:0] trap_cause;
 
+    logic        csr_addr_valid;
+    logic [31:0] csr_src;
+    logic        ex_csr_illegal;
+
+    // Immediate forms use zimm (the rs1 field, zero-extended).
+    assign csr_src =
+        id_ex_csr_imm
+            ? {27'b0, id_ex_rs1_addr}
+            : ex_rs1_forwarded;
+
     always_comb begin
         unique case (id_ex_csr_op)
             CSR_RW:
-                csr_write_data = ex_rs1_forwarded;
+                csr_write_data = csr_src;
 
             CSR_RS:
                 csr_write_data =
-                    csr_read_data | ex_rs1_forwarded;
+                    csr_read_data | csr_src;
+
+            CSR_RC:
+                csr_write_data =
+                    csr_read_data & ~csr_src;
 
             default:
                 csr_write_data = 32'd0;
         endcase
     end
 
-    assign csr_actual_write_en =
-        id_ex_valid &&
+    // A CSR instruction naming an unimplemented CSR is illegal.
+    assign ex_csr_illegal =
         id_ex_csr_write_en &&
-        !id_ex_ecall &&
-        !id_ex_illegal_instr &&
-        !((id_ex_csr_op == CSR_RS) &&
+        !csr_addr_valid;
+
+    // ------------------------------------------------------------
+    // EX COMMIT CONTROL
+    //
+    // EX is the single commit point for privileged side effects:
+    // nothing in MEM/WB can fault, so once an instruction leaves EX
+    // it is guaranteed to retire.
+    //
+    // ex_trap   : the EX instruction takes a trap this cycle. It is
+    //             killed, mepc/mcause are written, older MEM/WB
+    //             instructions drain, and IF/ID + ID/EX are flushed.
+    // ex_commit : the EX instruction is valid and not trapping. Only
+    //             committing instructions may write CSRs, update
+    //             mstatus via MRET, or proceed to MEM/WB.
+    // ex_irq    : take the machine timer interrupt on the valid EX
+    //             instruction. That instruction is killed and becomes
+    //             mepc, so it re-executes after MRET. Bubbles are not
+    //             interruptible (they have no PC); the interrupt then
+    //             waits for the next valid instruction to reach EX.
+    //             The decision uses CSR state from before this
+    //             instruction, which is consistent because the
+    //             instruction itself is killed.
+    //
+    // Interrupts take priority over synchronous exceptions and over
+    // any branch / jump / MRET / load-use stall in the same cycle.
+    // ------------------------------------------------------------
+
+    logic ex_exception;
+    logic ex_irq;
+    logic ex_trap;
+    logic ex_commit;
+
+    logic ex_illegal;
+
+    assign ex_illegal =
+        id_ex_illegal_instr ||
+        ex_csr_illegal;
+
+    assign ex_exception =
+        id_ex_valid &&
+        (id_ex_ecall || ex_illegal);
+
+    assign ex_irq =
+        id_ex_valid &&
+        global_irq_enable &&
+        timer_irq_enable &&
+        timer_irq_pending;
+
+    assign ex_trap =
+        ex_exception || ex_irq;
+
+    assign ex_commit =
+        id_ex_valid &&
+        !ex_trap;
+
+    assign csr_actual_write_en =
+        ex_commit &&
+        id_ex_csr_write_en &&
+        // CSRRS/CSRRC(I) with rs1 field = 0 (x0 or zimm=0) must not
+        // write (no write side effects); CSRRW(I) always writes.
+        !(((id_ex_csr_op == CSR_RS) || (id_ex_csr_op == CSR_RC)) &&
           (id_ex_rs1_addr == 5'd0));
 
     csr_file csr_file_inst (
@@ -571,6 +670,7 @@ module core #(
         .csr_write_en      (csr_actual_write_en),
         .csr_write_data    (csr_write_data),
         .csr_read_data     (csr_read_data),
+        .csr_addr_valid    (csr_addr_valid),
 
         .timer_irq         (cpu_irq),
 
@@ -578,7 +678,7 @@ module core #(
         .trap_pc           (trap_pc),
         .trap_cause        (trap_cause),
 
-        .mret              (id_ex_valid && id_ex_mret),
+        .mret              (ex_commit && id_ex_mret),
 
         .mtvec             (mtvec),
         .mepc              (mepc),
@@ -617,14 +717,14 @@ module core #(
         id_ex_mret;
 
     assign ex_take_exception =
-        id_ex_valid &&
-        (id_ex_ecall || id_ex_illegal_instr);
+        ex_exception;
 
     always_comb begin
         ex_redirect    = 1'b0;
         ex_redirect_pc = 32'b0;
 
-        if (ex_take_exception) begin
+        // Priority: trap > mret > jalr > jal > branch.
+        if (ex_trap) begin
             ex_redirect    = 1'b1;
             ex_redirect_pc = mtvec;
         end
@@ -653,24 +753,23 @@ module core #(
     // ============================================================
 
     assign trap_enter =
-        id_ex_valid &&
-        (id_ex_ecall || id_ex_illegal_instr);
+        ex_trap;
 
-    always_comb begin
-        trap_pc = 32'b0;
-
-        if (id_ex_ecall)
-            trap_pc = id_ex_pc_plus_4;
-        else if (id_ex_illegal_instr)
-            trap_pc = id_ex_pc;
-    end
+    // mepc = PC of the EX instruction for both cases:
+    //   exception : the faulting instruction (ECALL handlers
+    //               advance mepc by 4 in software)
+    //   interrupt : the killed instruction, i.e. the resume PC
+    assign trap_pc =
+        id_ex_pc;
 
     always_comb begin
         trap_cause = 32'b0;
 
-        if (id_ex_ecall)
+        if (ex_irq)
+            trap_cause = 32'h8000_0007;
+        else if (id_ex_ecall)
             trap_cause = 32'h0000_000B;
-        else if (id_ex_illegal_instr)
+        else if (ex_illegal)
             trap_cause = 32'h0000_0002;
     end
 
@@ -696,12 +795,14 @@ module core #(
             ex_mem_reg_write_en <= 1'b0;
             ex_mem_mem_read_en  <= 1'b0;
             ex_mem_mem_write_en <= 1'b0;
+
+            ex_mem_trap       <= 1'b0;
+            ex_mem_trap_irq   <= 1'b0;
+            ex_mem_trap_cause <= 32'b0;
         end
         else begin
             ex_mem_valid <=
-                id_ex_valid &&
-                !id_ex_ecall &&
-                !id_ex_illegal_instr;
+                ex_commit;
 
             // Carry instruction identity forward.
             ex_mem_pc    <= id_ex_pc;
@@ -716,27 +817,25 @@ module core #(
             ex_mem_rd_addr <= id_ex_rd_addr;
 
             ex_mem_reg_write_en <=
-                id_ex_valid &&
-                !id_ex_ecall &&
-                !id_ex_illegal_instr &&
+                ex_commit &&
                 id_ex_reg_write_en;
 
             ex_mem_wb_sel <= id_ex_wb_sel;
 
             ex_mem_mem_read_en <=
-                id_ex_valid &&
-                !id_ex_ecall &&
-                !id_ex_illegal_instr &&
+                ex_commit &&
                 id_ex_mem_read_en;
 
             ex_mem_mem_write_en <=
-                id_ex_valid &&
-                !id_ex_ecall &&
-                !id_ex_illegal_instr &&
+                ex_commit &&
                 id_ex_mem_write_en;
 
             ex_mem_load_type  <= id_ex_load_type;
             ex_mem_store_type <= id_ex_store_type;
+
+            ex_mem_trap       <= ex_trap;
+            ex_mem_trap_irq   <= ex_irq;
+            ex_mem_trap_cause <= trap_cause;
         end
     end
 
@@ -901,9 +1000,17 @@ module core #(
             mem_wb_rd_addr <= 5'b0;
 
             mem_wb_reg_write_en <= 1'b0;
+
+            mem_wb_trap       <= 1'b0;
+            mem_wb_trap_irq   <= 1'b0;
+            mem_wb_trap_cause <= 32'b0;
         end
         else begin
             mem_wb_valid <= ex_mem_valid;
+
+            mem_wb_trap       <= ex_mem_trap;
+            mem_wb_trap_irq   <= ex_mem_trap_irq;
+            mem_wb_trap_cause <= ex_mem_trap_cause;
 
             // Carry instruction identity into retirement.
             mem_wb_pc    <= ex_mem_pc;
@@ -1001,6 +1108,19 @@ module core #(
 
     assign retire_rd_data =
         wb_data;
+
+    // Trap events reach WB in program order: after every older
+    // instruction has retired and before any handler instruction.
+    assign retire_exception =
+        mem_wb_trap &&
+        !mem_wb_trap_irq;
+
+    assign retire_interrupt =
+        mem_wb_trap &&
+        mem_wb_trap_irq;
+
+    assign retire_cause =
+        mem_wb_trap_cause;
 
     // ============================================================
     // DEBUG

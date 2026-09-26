@@ -1,0 +1,8 @@
+# Not taken while MIE or MTIE is clear
+x29=0
+# Taken exactly three times, always resuming at sled[0]
+x31=3
+x30=3
+x23=0
+# No sled instruction lost or duplicated
+x7=10

@@ -1,0 +1,9 @@
+# Every interrupted run matched the reference checksum and every
+# handler entry saw mcause=0x80000007, MIE=0, MPIE=1.
+x27=0
+# One interrupt per iteration.
+x26=48
+x31=48
+# Most interrupts landed inside the victim block.
+x30>=30
+x19!=0

@@ -63,7 +63,11 @@ module program_tb #(
 
         .retire_reg_write (dut.core_inst.retire_reg_write),
         .retire_rd        (dut.core_inst.retire_rd),
-        .retire_rd_data   (dut.core_inst.retire_rd_data)
+        .retire_rd_data   (dut.core_inst.retire_rd_data),
+
+        .retire_exception (dut.core_inst.retire_exception),
+        .retire_interrupt (dut.core_inst.retire_interrupt),
+        .retire_cause     (dut.core_inst.retire_cause)
     );
 
     // Assertions inst
@@ -73,6 +77,20 @@ module program_tb #(
 
         .load_use_hazard (dut.core_inst.load_use_hazard),
         .ex_redirect     (dut.core_inst.ex_redirect),
+        .ex_redirect_pc  (dut.core_inst.ex_redirect_pc),
+
+        .trap_enter      (dut.core_inst.trap_enter),
+        .mtvec           (dut.core_inst.mtvec),
+
+        .ex_take_mret    (dut.core_inst.ex_take_mret),
+        .mepc            (dut.core_inst.mepc),
+
+        .trap_cause        (dut.core_inst.trap_cause),
+        .global_irq_enable (dut.core_inst.global_irq_enable),
+        .timer_irq_enable  (dut.core_inst.timer_irq_enable),
+        .timer_irq_pending (dut.core_inst.timer_irq_pending),
+
+        .id_ex_pc        (dut.core_inst.id_ex_pc),
 
         .pc_current      (dut.core_inst.pc_current),
 
@@ -86,7 +104,14 @@ module program_tb #(
         .wb_reg_write_en (dut.core_inst.wb_reg_write_en),
         .wb_rd_addr      (dut.core_inst.wb_rd_addr),
 
-        .x0              (dut.core_inst.regfile_inst.regs[0])
+        .x0              (dut.core_inst.regfile_inst.regs[0]),
+
+        .retire_valid     (dut.core_inst.retire_valid),
+        .retire_pc        (dut.core_inst.retire_pc),
+        .retire_instr     (dut.core_inst.retire_instr),
+        .retire_exception (dut.core_inst.retire_exception),
+        .retire_interrupt (dut.core_inst.retire_interrupt),
+        .retire_cause     (dut.core_inst.retire_cause)
     );
 
     // Coverage inst
@@ -118,7 +143,10 @@ module program_tb #(
         .id_ex_mem_read_en    (dut.core_inst.id_ex_mem_read_en),
         .id_ex_mem_write_en   (dut.core_inst.id_ex_mem_write_en),
 
-        .retire_valid         (dut.core_inst.retire_valid)
+        .retire_valid         (dut.core_inst.retire_valid),
+
+        .trap_enter           (dut.core_inst.trap_enter),
+        .ex_irq               (dut.core_inst.ex_irq)
     );
 
 

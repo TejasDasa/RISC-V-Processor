@@ -23,8 +23,8 @@ _start:
     #
     # Set bit 3 in mstatus.
     #
-    # mstatus starts at 0.
-    # OR with 0x8 should produce 0x8.
+    # mstatus starts at 0x1800 (MPP hardwired to M-mode).
+    # OR with 0x8 should produce 0x1808.
     # Old mstatus should be returned in x7.
     # ----------------------------------------------------------
 
@@ -32,7 +32,7 @@ _start:
 
     csrrs x7, mstatus, x5
 
-    # x7 should contain old mstatus = 0
+    # x7 should contain old mstatus = 0x1800
 
 
     # ----------------------------------------------------------

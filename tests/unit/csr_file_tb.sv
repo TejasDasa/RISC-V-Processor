@@ -207,9 +207,10 @@ module csr_file_tb;
         1'b1
     );
 
+    // MPP reads as M-mode (0x1800).
     read_csr(
         CSR_MSTATUS,
-        32'h0000_0008,
+        32'h0000_1808,
         "mstatus readback"
     );
 
@@ -324,7 +325,8 @@ module csr_file_tb;
     // ----------------------------------------------------------
     // MRET
     //
-    // Current simplified design restores MIE directly to 1.
+    // MIE <= MPIE. MIE was 1 before the trap, so trap entry
+    // saved MPIE=1 and MRET restores MIE=1.
     // ----------------------------------------------------------
 
     mret = 1'b1;

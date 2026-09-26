@@ -1,0 +1,14 @@
+# Trap with MIE=1
+x7=0x1808
+x8=0x1880
+x9=0x1888
+# Trap with MIE=0
+x10=0x1800
+x11=0x1880
+# Direct MRET
+x12=0
+x13=0
+x14=0
+x15=0x15
+x16=0x1888
+x31=2

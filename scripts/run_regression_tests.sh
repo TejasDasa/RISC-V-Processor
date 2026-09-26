@@ -37,7 +37,14 @@ run_program() {
 
     exit_code=$?
 
+    # Optional per-program cycle budget in <program>.cycles
+    local run_cycles=10000
+    if [ -f "${PROGRAM_DIR}/${program}.cycles" ]; then
+        run_cycles="$(tr -d '[:space:]' < "${PROGRAM_DIR}/${program}.cycles")"
+    fi
+
     if [ "${exit_code}" -eq 0 ]; then
+        RUN_CYCLES="${run_cycles}" \
         ./scripts/run_program_tb.sh "${program}" \
             "${PROGRAM_DIR}/${program}.expected" \
             >> "${log_file}" 2>&1
