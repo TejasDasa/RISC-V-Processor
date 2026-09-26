@@ -63,7 +63,11 @@ module program_tb #(
 
         .retire_reg_write (dut.core_inst.retire_reg_write),
         .retire_rd        (dut.core_inst.retire_rd),
-        .retire_rd_data   (dut.core_inst.retire_rd_data)
+        .retire_rd_data   (dut.core_inst.retire_rd_data),
+
+        .retire_exception (dut.core_inst.retire_exception),
+        .retire_interrupt (dut.core_inst.retire_interrupt),
+        .retire_cause     (dut.core_inst.retire_cause)
     );
 
     // Assertions inst
@@ -100,7 +104,14 @@ module program_tb #(
         .wb_reg_write_en (dut.core_inst.wb_reg_write_en),
         .wb_rd_addr      (dut.core_inst.wb_rd_addr),
 
-        .x0              (dut.core_inst.regfile_inst.regs[0])
+        .x0              (dut.core_inst.regfile_inst.regs[0]),
+
+        .retire_valid     (dut.core_inst.retire_valid),
+        .retire_pc        (dut.core_inst.retire_pc),
+        .retire_instr     (dut.core_inst.retire_instr),
+        .retire_exception (dut.core_inst.retire_exception),
+        .retire_interrupt (dut.core_inst.retire_interrupt),
+        .retire_cause     (dut.core_inst.retire_cause)
     );
 
     // Coverage inst

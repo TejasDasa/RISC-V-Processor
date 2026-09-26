@@ -30,8 +30,81 @@ module cpu_assertions (
     input logic        wb_reg_write_en,
     input logic [4:0]  wb_rd_addr,
 
-    input logic [31:0] x0
+    input logic [31:0] x0,
+
+    // Retirement stream
+    input logic        retire_valid,
+    input logic [31:0] retire_pc,
+    input logic [31:0] retire_instr,
+    input logic        retire_exception,
+    input logic        retire_interrupt,
+    input logic [31:0] retire_cause
 );
+
+    // ------------------------------------------------------------
+    // Retirement-level precise trap checks
+    // ------------------------------------------------------------
+
+    localparam logic [31:0] MRET_INSTR = 32'h3020_0073;
+
+    logic trap_event;
+
+    assign trap_event =
+        retire_exception || retire_interrupt;
+
+    // A trapped instruction is reported, never retired.
+    ap_trap_event_not_retired:
+        assert property (@(posedge clk)
+            disable iff (rst)
+            trap_event |-> !retire_valid
+        );
+
+    // Every trap produces exactly one trap event, two cycles later
+    // (EX -> MEM -> WB), i.e. after all older instructions.
+    ap_trap_event_timing:
+        assert property (@(posedge clk)
+            disable iff (rst)
+            trap_event == $past(trap_enter, 2)
+        );
+
+    ap_trap_event_kind:
+        assert property (@(posedge clk)
+            disable iff (rst)
+            trap_event |-> (retire_interrupt == retire_cause[31])
+        );
+
+    // Expected PC of the next retirement:
+    //   after a trap event   -> mtvec (first handler instruction)
+    //   after an MRET retire -> mepc
+    // Any other retirement in between would be a younger or
+    // wrong-path instruction committing.
+    logic        expect_next_valid;
+    logic [31:0] expect_next_pc;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            expect_next_valid <= 1'b0;
+            expect_next_pc    <= 32'b0;
+        end
+        else if (trap_event) begin
+            expect_next_valid <= 1'b1;
+            expect_next_pc    <= mtvec;
+        end
+        else if (retire_valid && (retire_instr == MRET_INSTR)) begin
+            expect_next_valid <= 1'b1;
+            expect_next_pc    <= mepc;
+        end
+        else if (retire_valid) begin
+            expect_next_valid <= 1'b0;
+        end
+    end
+
+    ap_retire_after_trap_or_mret:
+        assert property (@(posedge clk)
+            disable iff (rst)
+            (expect_next_valid && retire_valid) |->
+                (retire_pc == expect_next_pc)
+        );
 
     // ------------------------------------------------------------
     // Architectural invariants

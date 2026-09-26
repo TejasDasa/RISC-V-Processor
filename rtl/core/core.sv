@@ -21,7 +21,13 @@ module core #(
     output logic [31:0] retire_instr,
     output logic        retire_reg_write,
     output logic [4:0]  retire_rd,
-    output logic [31:0] retire_rd_data
+    output logic [31:0] retire_rd_data,
+
+    // Trap events: the instruction at retire_pc/retire_instr was
+    // killed by a trap instead of retiring (retire_valid is low).
+    output logic        retire_exception,
+    output logic        retire_interrupt,
+    output logic [31:0] retire_cause
 );
 
     import riscv_pkg::*;
@@ -394,6 +400,12 @@ module core #(
     logic [31:0] ex_mem_pc_plus_4;
     logic [31:0] ex_mem_csr_read_data;
 
+    // Trap event for the instruction killed in EX (debug only;
+    // ex_mem_valid stays low so it has no side effects).
+    logic        ex_mem_trap;
+    logic        ex_mem_trap_irq;
+    logic [31:0] ex_mem_trap_cause;
+
     logic [4:0]  ex_mem_rd_addr;
 
     logic        ex_mem_reg_write_en;
@@ -413,6 +425,10 @@ module core #(
     logic [31:0] mem_wb_load_result;
     logic [31:0] mem_wb_pc_plus_4;
     logic [31:0] mem_wb_csr_read_data;
+
+    logic        mem_wb_trap;
+    logic        mem_wb_trap_irq;
+    logic [31:0] mem_wb_trap_cause;
 
     logic [4:0]  mem_wb_rd_addr;
 
@@ -747,6 +763,10 @@ module core #(
             ex_mem_reg_write_en <= 1'b0;
             ex_mem_mem_read_en  <= 1'b0;
             ex_mem_mem_write_en <= 1'b0;
+
+            ex_mem_trap       <= 1'b0;
+            ex_mem_trap_irq   <= 1'b0;
+            ex_mem_trap_cause <= 32'b0;
         end
         else begin
             ex_mem_valid <=
@@ -780,6 +800,10 @@ module core #(
 
             ex_mem_load_type  <= id_ex_load_type;
             ex_mem_store_type <= id_ex_store_type;
+
+            ex_mem_trap       <= ex_trap;
+            ex_mem_trap_irq   <= ex_irq;
+            ex_mem_trap_cause <= trap_cause;
         end
     end
 
@@ -944,9 +968,17 @@ module core #(
             mem_wb_rd_addr <= 5'b0;
 
             mem_wb_reg_write_en <= 1'b0;
+
+            mem_wb_trap       <= 1'b0;
+            mem_wb_trap_irq   <= 1'b0;
+            mem_wb_trap_cause <= 32'b0;
         end
         else begin
             mem_wb_valid <= ex_mem_valid;
+
+            mem_wb_trap       <= ex_mem_trap;
+            mem_wb_trap_irq   <= ex_mem_trap_irq;
+            mem_wb_trap_cause <= ex_mem_trap_cause;
 
             // Carry instruction identity into retirement.
             mem_wb_pc    <= ex_mem_pc;
@@ -1044,6 +1076,19 @@ module core #(
 
     assign retire_rd_data =
         wb_data;
+
+    // Trap events reach WB in program order: after every older
+    // instruction has retired and before any handler instruction.
+    assign retire_exception =
+        mem_wb_trap &&
+        !mem_wb_trap_irq;
+
+    assign retire_interrupt =
+        mem_wb_trap &&
+        mem_wb_trap_irq;
+
+    assign retire_cause =
+        mem_wb_trap_cause;
 
     // ============================================================
     // DEBUG
