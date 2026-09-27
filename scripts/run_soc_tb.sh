@@ -21,8 +21,10 @@ verilator \
   rtl/core/imm_gen.sv \
   rtl/core/alu.sv \
   rtl/core/branch_unit.sv \
+  rtl/core/csr_file.sv \
   rtl/soc/uart_tx.sv \
   rtl/soc/timer.sv \
+  rtl/soc/gpio.sv \
   rtl/soc/interrupt_controller.sv \
   rtl/core/dmem.sv \
   rtl/core/core.sv \
