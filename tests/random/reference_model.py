@@ -6,6 +6,7 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 import re
+import sys
 
 
 U32_MASK = 0xFFFF_FFFF
@@ -14,6 +15,59 @@ MEM_PATTERN = re.compile(
     r"([-+]?(?:0[xX][0-9A-Fa-f]+|\d+))"
     r"\(x(\d+)\)"
 )
+
+# Retirement / trap lines printed by the RTL (cpu_monitor, TRACE_RETIRE)
+RTL_RETIRE_PATTERN = re.compile(r"^RETIRE\s+pc=")
+RTL_TRAP_PATTERN = re.compile(
+    r"TRAP_EVENT\s+kind=(\w+)\s+pc=([0-9a-fA-F]+)\s+"
+    r"instr=[0-9a-fA-F]+\s+cause=([0-9a-fA-F]+)"
+)
+
+# Device registers (timer, UART, GPIO). Stores there are not part of
+# the architectural memory image compared against the RTL.
+MMIO_BASE = 0x1000_0000
+
+# ------------------------------------------------------------
+# Machine-mode CSRs (matches rtl/core/csr_file.sv)
+# ------------------------------------------------------------
+
+CSR_MSTATUS = 0x300
+CSR_MIE = 0x304
+CSR_MTVEC = 0x305
+CSR_MSCRATCH = 0x340
+CSR_MEPC = 0x341
+CSR_MCAUSE = 0x342
+CSR_MTVAL = 0x343
+CSR_MIP = 0x344
+
+CSR_NAMES = {
+    "mstatus": CSR_MSTATUS,
+    "mie": CSR_MIE,
+    "mtvec": CSR_MTVEC,
+    "mscratch": CSR_MSCRATCH,
+    "mepc": CSR_MEPC,
+    "mcause": CSR_MCAUSE,
+    "mtval": CSR_MTVAL,
+    "mip": CSR_MIP,
+}
+
+CSR_IMPLEMENTED = set(CSR_NAMES.values())
+
+MSTATUS_MIE = 1 << 3
+MSTATUS_MPIE = 1 << 7
+MSTATUS_WMASK = MSTATUS_MIE | MSTATUS_MPIE
+MSTATUS_MPP_M = 0x1800
+MIE_MTIE = 1 << 7
+
+CAUSE_ILLEGAL = 0x0000_0002
+CAUSE_ECALL = 0x0000_000B
+CAUSE_TIMER_IRQ = 0x8000_0007
+
+CSR_OPS = {"csrrw", "csrrs", "csrrc", "csrrwi", "csrrsi", "csrrci"}
+
+
+class ModelError(Exception):
+    """The RTL trace asked for something architecturally illegal."""
 
 
 def u32(value: int) -> int:
@@ -85,12 +139,68 @@ class Instruction:
     text: str
 
 
+def parse_csr(token: str) -> int:
+    token = token.strip().lower()
+
+    if token in CSR_NAMES:
+        return CSR_NAMES[token]
+
+    return int(token, 0)
+
+
 @dataclass
 class RetireEvent:
     pc: int
     reg_write: bool
     rd: int
     data: int
+
+
+@dataclass
+class TrapEvent:
+    kind: str       # "exception" or "interrupt"
+    pc: int         # trapped instruction (= mepc)
+    cause: int
+    after: int      # number of retirements before this trap
+
+
+@dataclass
+class Injection:
+    pc: int
+    after: int
+
+
+def load_rtl_interrupts(path: Path) -> list[Injection]:
+    """
+    Interrupt positions from the RTL simulation log.
+
+    Asynchronous interrupt timing depends on RTL cycles, which this
+    model does not simulate. Instead, each interrupt the RTL took is
+    replayed at the same position in the retirement stream (after
+    the same number of retired instructions). The model checks that
+    the position is a legal one: the PC must match and interrupts
+    must be enabled there.
+    """
+
+    injections: list[Injection] = []
+    retired = 0
+
+    for line in path.read_text().splitlines():
+        if RTL_RETIRE_PATTERN.search(line):
+            retired += 1
+            continue
+
+        match = RTL_TRAP_PATTERN.search(line)
+
+        if match and match.group(1) == "interrupt":
+            injections.append(
+                Injection(
+                    pc=int(match.group(2), 16),
+                    after=retired,
+                )
+            )
+
+    return injections
 
 
 class RV32IReferenceModel:
@@ -113,6 +223,22 @@ class RV32IReferenceModel:
         self.pc = 0
 
         self.halt_pc: int | None = None
+
+        # Machine-mode CSR state (mstatus holds only MIE / MPIE).
+        self.csrs: dict[int, int] = {
+            CSR_MSTATUS: 0,
+            CSR_MIE: 0,
+            CSR_MTVEC: 0,
+            CSR_MSCRATCH: 0,
+            CSR_MEPC: 0,
+            CSR_MCAUSE: 0,
+        }
+
+        self.trap_events: list[TrapEvent] = []
+
+        # Interrupts to replay, from the RTL trace (see
+        # load_rtl_interrupts).
+        self.injections: list[Injection] = []
 
     # ============================================================
     # Architectural state
@@ -155,9 +281,112 @@ class RV32IReferenceModel:
         value: int,
     ) -> None:
 
+        # Device register writes (timer compare/control) are not
+        # part of the compared memory image.
+        if u32(addr) >= MMIO_BASE:
+            return
+
         self.memory[u32(addr)] = u32(
             value
         )
+
+    # ============================================================
+    # CSRs and traps
+    # ============================================================
+
+    def csr_read(self, addr: int) -> int:
+        if addr == CSR_MSTATUS:
+            return self.csrs[CSR_MSTATUS] | MSTATUS_MPP_M
+
+        if addr == CSR_MTVAL:
+            return 0
+
+        if addr == CSR_MIP:
+            raise ModelError(
+                "mip reads depend on timer cycles and are not "
+                "modeled; the generator must not emit them"
+            )
+
+        return self.csrs[addr]
+
+    def csr_write(self, addr: int, value: int) -> None:
+        value = u32(value)
+
+        if addr == CSR_MSTATUS:
+            self.csrs[CSR_MSTATUS] = value & MSTATUS_WMASK
+
+        elif addr in (CSR_MTVAL, CSR_MIP):
+            pass    # read-only / hardware-driven
+
+        else:
+            self.csrs[addr] = value
+
+    def take_trap(self, pc: int, cause: int) -> int:
+        """Trap entry. Returns the handler PC (mtvec)."""
+
+        status = self.csrs[CSR_MSTATUS]
+        mpie = MSTATUS_MPIE if (status & MSTATUS_MIE) else 0
+
+        self.csrs[CSR_MSTATUS] = mpie               # MIE = 0
+        self.csrs[CSR_MEPC] = u32(pc)
+        self.csrs[CSR_MCAUSE] = u32(cause)
+
+        self.trap_events.append(
+            TrapEvent(
+                kind=(
+                    "interrupt"
+                    if cause & 0x8000_0000
+                    else "exception"
+                ),
+                pc=u32(pc),
+                cause=u32(cause),
+                after=len(self.retire_events),
+            )
+        )
+
+        return self.csrs[CSR_MTVEC]
+
+    def take_injected_interrupts(self) -> None:
+        """Take every RTL interrupt due at this retirement count."""
+
+        retired = len(self.retire_events)
+
+        while self.injections:
+            injection = self.injections[0]
+
+            if injection.after > retired:
+                return
+
+            if injection.after < retired:
+                raise ModelError(
+                    f"RTL took an interrupt after retirement "
+                    f"#{injection.after} (pc=0x{injection.pc:08x}), "
+                    f"but the model passed that point without a "
+                    f"legal interrupt boundary"
+                )
+
+            self.injections.pop(0)
+
+            if injection.pc != self.pc:
+                raise ModelError(
+                    f"RTL interrupted pc=0x{injection.pc:08x} after "
+                    f"retirement #{retired}, but the next "
+                    f"architectural instruction is "
+                    f"pc=0x{self.pc:08x}"
+                )
+
+            mie_on = self.csrs[CSR_MSTATUS] & MSTATUS_MIE
+            mtie_on = self.csrs[CSR_MIE] & MIE_MTIE
+
+            if not (mie_on and mtie_on):
+                raise ModelError(
+                    f"RTL took an interrupt at pc=0x{self.pc:08x} "
+                    f"while it was disabled "
+                    f"(mstatus.MIE={int(bool(mie_on))}, "
+                    f"mie.MTIE={int(bool(mtie_on))})"
+                )
+
+            self.pc = self.take_trap(self.pc, CAUSE_TIMER_IRQ)
 
     # ============================================================
     # Assembly loading
@@ -183,7 +412,9 @@ class RV32IReferenceModel:
             if not line:
                 continue
 
-            if line.startswith("."):
+            # ".word" emits an instruction word; other directives
+            # take no space in .text.
+            if line.startswith(".") and not line.startswith(".word"):
                 continue
 
             if line.endswith(":"):
@@ -209,7 +440,7 @@ class RV32IReferenceModel:
             if not line:
                 continue
 
-            if line.startswith("."):
+            if line.startswith(".") and not line.startswith(".word"):
                 continue
 
             if line.endswith(":"):
@@ -591,6 +822,77 @@ class RV32IReferenceModel:
                 data=link,
             )
 
+        # --------------------------------------------------------
+        # Zicsr: CSRRW / CSRRS / CSRRC and immediate forms
+        # --------------------------------------------------------
+
+        elif op in CSR_OPS:
+            rd = parse_reg(tokens[1])
+            addr = parse_csr(tokens[2])
+
+            # Immediate forms use zimm; the rs1 field is either the
+            # register number or zimm, and it gates the write for
+            # the set / clear forms.
+            if op.endswith("i"):
+                field = parse_imm(tokens[3]) & 0x1F
+                src = field
+            else:
+                field = parse_reg(tokens[3])
+                src = self.read_reg(field)
+
+            if addr not in CSR_IMPLEMENTED:
+                # Unimplemented CSR: illegal instruction, no effect.
+                next_pc = self.take_trap(current_pc, CAUSE_ILLEGAL)
+
+            else:
+                old = self.csr_read(addr)
+                base = op.rstrip("i")
+
+                if base == "csrrw":
+                    self.csr_write(addr, src)
+                elif field != 0:
+                    if base == "csrrs":
+                        self.csr_write(addr, old | src)
+                    else:
+                        self.csr_write(addr, old & ~src)
+
+                self.write_reg(rd, old)
+
+                self.retire(
+                    current_pc,
+                    reg_write=(rd != 0),
+                    rd=rd,
+                    data=old,
+                )
+
+        # --------------------------------------------------------
+        # ECALL: trap, mepc = the ECALL itself
+        # --------------------------------------------------------
+
+        elif op == "ecall":
+            next_pc = self.take_trap(current_pc, CAUSE_ECALL)
+
+        # --------------------------------------------------------
+        # MRET: PC <- mepc, MIE <- MPIE, MPIE <- 1
+        # --------------------------------------------------------
+
+        elif op == "mret":
+            status = self.csrs[CSR_MSTATUS]
+            mie = MSTATUS_MIE if (status & MSTATUS_MPIE) else 0
+
+            self.csrs[CSR_MSTATUS] = mie | MSTATUS_MPIE
+
+            next_pc = self.csrs[CSR_MEPC]
+
+            self.retire(current_pc)
+
+        # --------------------------------------------------------
+        # .word: the generator only emits illegal encodings
+        # --------------------------------------------------------
+
+        elif op == ".word":
+            next_pc = self.take_trap(current_pc, CAUSE_ILLEGAL)
+
         else:
             raise ValueError(
                 "Unsupported instruction: "
@@ -611,6 +913,9 @@ class RV32IReferenceModel:
         steps = 0
 
         while steps < max_steps:
+
+            # Replay any RTL interrupt due at this boundary.
+            self.take_injected_interrupts()
 
             # Execute the halt JAL once so it appears in the
             # expected retirement stream, then stop.
@@ -643,6 +948,17 @@ class RV32IReferenceModel:
                 f"regwrite={int(event.reg_write)} "
                 f"rd={event.rd} "
                 f"data={event.data:08x}"
+            )
+
+    def dump_traps(self) -> None:
+        for event in self.trap_events:
+
+            print(
+                "EXPECTED_TRAP "
+                f"kind={event.kind} "
+                f"pc={event.pc:08x} "
+                f"cause={event.cause:08x} "
+                f"after={event.after}"
             )
 
     def dump_registers(self) -> None:
@@ -682,6 +998,16 @@ def main() -> None:
         type=Path,
     )
 
+    parser.add_argument(
+        "--rtl-trace",
+        type=Path,
+        help=(
+            "RTL simulation log (TRACE_RETIRE); timer interrupts "
+            "are replayed at the retirement positions where the "
+            "RTL took them"
+        ),
+    )
+
     args = parser.parse_args()
 
     model = RV32IReferenceModel()
@@ -690,9 +1016,18 @@ def main() -> None:
         args.program
     )
 
-    model.run()
+    if args.rtl_trace is not None:
+        model.injections = load_rtl_interrupts(args.rtl_trace)
+
+    try:
+        model.run()
+    except ModelError as error:
+        print(f"MODEL_ERROR: {error}")
+        print(f"MODEL_ERROR: {error}", file=sys.stderr)
+        raise SystemExit(1)
 
     model.dump_retirements()
+    model.dump_traps()
     model.dump_registers()
     model.dump_memory()
 

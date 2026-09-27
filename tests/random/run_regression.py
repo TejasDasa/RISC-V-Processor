@@ -44,6 +44,12 @@ COVERAGE_PATTERNS = {
     "retire": re.compile(
         r"Retired instructions\s*:\s*(\d+)"
     ),
+    "trap": re.compile(
+        r"Traps taken\s*:\s*(\d+)"
+    ),
+    "irq": re.compile(
+        r"Interrupts taken\s*:\s*(\d+)"
+    ),
 }
 
 
@@ -316,6 +322,16 @@ def main() -> None:
     print(
         f"  Stores        : "
         f"{total_coverage['store']}"
+    )
+
+    print(
+        f"  Exceptions    : "
+        f"{total_coverage['trap'] - total_coverage['irq']}"
+    )
+
+    print(
+        f"  Interrupts    : "
+        f"{total_coverage['irq']}"
     )
 
     print(

@@ -6,9 +6,13 @@ module soc_tb;
   logic [31:0] debug_pc;
   logic [31:0] debug_instr;
 
-  logic uart_tx;
-  logic uart_busy;
-  logic cpu_irq;
+  logic        uart_write_valid;
+  logic [7:0]  uart_write_data;
+  logic        cpu_irq;
+  logic [31:0] gpio_out;
+
+  // Set when the halt instruction at 0x14 retires.
+  logic        halt_retired;
 
   int failures;
 
@@ -24,10 +28,12 @@ module soc_tb;
       .debug_pc    (debug_pc),
       .debug_instr (debug_instr),
 
-      .uart_tx     (uart_tx),
-      .uart_busy   (uart_busy),
+      .uart_write_valid   (uart_write_valid),
+      .uart_write_data    (uart_write_data),
+      .uart_external_busy (1'b0),
 
-      .cpu_irq     (cpu_irq)
+      .cpu_irq     (cpu_irq),
+      .gpio_out    (gpio_out)
   );
 
   task automatic check_eq1(
@@ -73,6 +79,25 @@ module soc_tb;
     clk = 1'b0;
     forever #5 clk = ~clk;
   end
+
+  always_ff @(posedge clk) begin
+    if (rst)
+      halt_retired <= 1'b0;
+    else if (dut.core_inst.retire_valid &&
+             dut.core_inst.retire_pc == 32'h0000_0014)
+      halt_retired <= 1'b1;
+  end
+
+  // Wait for a condition with a timeout (pipeline timing is not
+  // fixed, so the checks wait for events instead of counting).
+  task automatic wait_until_control_programmed(input int max_cycles);
+    for (int i = 0; i < max_cycles; i++) begin
+      if (dut.timer_inst.control == 32'd3)
+        return;
+      @(posedge clk);
+      #1;
+    end
+  endtask
 
   initial begin
     failures = 0;
@@ -151,7 +176,7 @@ module soc_tb;
     // CPU programs timer through the bus
     // ----------------------------------------------------------
 
-    wait_clocks(6);
+    wait_until_control_programmed(20);
 
     check_eq32(
         "timer compare programmed through bus",
@@ -228,10 +253,12 @@ module soc_tb;
         32'd3
     );
 
-    check_eq32(
-        "halt-loop PC",
-        debug_pc,
-        32'h0000_0014
+    // In the pipeline the PC keeps fetching past the halt loop until
+    // the jal redirects, so check that the halt instruction retired.
+    check_eq1(
+        "halt instruction at 0x14 retired",
+        halt_retired,
+        1'b1
     );
 
     // ----------------------------------------------------------

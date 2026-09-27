@@ -273,19 +273,24 @@ generate-random:
 .PHONY: random-sim
 random-sim: generate-random
 	@mkdir -p $(BUILD_DIR)
-	@echo "============================================================"
-	@echo " Generating reference state"
-	@echo "============================================================"
-
-	python3 $(REPO_ROOT)/tests/random/reference_model.py \
-		$(RANDOM_DIR)/random_test.S \
-		> $(RANDOM_REFERENCE)
 
 	$(MAKE) \
 		PROGRAM=random_test \
 		PROGRAM_DIR=$(RANDOM_DIR) \
 		TRACE_RETIRE=1 \
 		sim
+
+	@echo "============================================================"
+	@echo " Generating reference state"
+	@echo "============================================================"
+
+	# The model runs after the RTL so it can replay asynchronous
+	# timer interrupts at the retirement positions where the RTL
+	# took them (and reject any illegal position).
+	python3 $(REPO_ROOT)/tests/random/reference_model.py \
+		$(RANDOM_DIR)/random_test.S \
+		--rtl-trace $(BUILD_DIR)/random_test_simulation.log \
+		> $(RANDOM_REFERENCE)
 
 	@echo ""
 	@echo "============================================================"

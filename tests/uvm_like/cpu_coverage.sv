@@ -153,6 +153,7 @@ module cpu_coverage (
     int unsigned count_branch_not_taken;
 
     int unsigned count_jal;
+    int unsigned count_jal_call;
     int unsigned count_jalr;
 
     int unsigned count_redirect;
@@ -162,7 +163,12 @@ module cpu_coverage (
 
     int unsigned count_retire;
 
-    logic meaningful_jal;
+    // A JAL that writes a link register (rd != x0) is a call.
+    logic jal_call;
+
+    assign jal_call =
+        ex_take_jump &&
+        (id_ex_rd_addr != 5'd0);
 
 
     always_ff @(posedge clk) begin
@@ -179,6 +185,7 @@ module cpu_coverage (
             count_branch_not_taken <= 0;
 
             count_jal              <= 0;
+            count_jal_call         <= 0;
             count_jalr             <= 0;
 
             count_redirect         <= 0;
@@ -220,11 +227,10 @@ module cpu_coverage (
             if (ex_take_jump)
                 count_jal <= count_jal + 1;
 
-            assign meaningful_jal =
-                ex_take_jump &&
-                (id_ex_rd_addr != 5'd0);
+            if (jal_call)
+                count_jal_call <= count_jal_call + 1;
 
-            if (meaningful_jal)
+            if (ex_take_jalr)
                 count_jalr <= count_jalr + 1;
 
             if (ex_redirect)
@@ -296,6 +302,11 @@ module cpu_coverage (
         $display(
             "JAL redirects            : %0d",
             count_jal
+        );
+
+        $display(
+            "JAL calls (rd != x0)     : %0d",
+            count_jal_call
         );
 
         $display(

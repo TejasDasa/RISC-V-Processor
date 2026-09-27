@@ -281,7 +281,23 @@ Randomized ALU regressions currently exercise:
 - SLT / SLTU
 - Back-to-back register dependencies
 
-Randomized load/store and memory-state differential checking are currently being added.
+Randomized privileged coverage:
+
+- All six Zicsr forms (register and immediate), including `rs1 = x0` /
+  `zimm = 0` write suppression and back-to-back CSR read-after-write
+- ECALL and illegal instructions (bad encodings, unimplemented CSRs)
+  through a generated trap handler
+- Asynchronous timer interrupts with a per-seed schedule
+- In-order comparison of every trap event (kind, PC, cause and
+  position in the retirement stream)
+
+Interrupt timing depends on RTL cycles, which the Python model does
+not simulate. The flow therefore runs the RTL first. The model then
+replays each interrupt at the retirement position where the RTL took
+it, and rejects any interrupt that is not at the next architectural
+PC or that arrives while `mstatus.MIE` / `mie.MTIE` is clear. The RTL
+assertion `ap_irq_not_missed` covers the opposite case: a pending,
+enabled interrupt that the RTL skipped.
 
 ## Waveform Demos
 
