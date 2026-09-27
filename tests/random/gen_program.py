@@ -22,6 +22,19 @@ HELPER_COUNT = 19
 DMEM_BASE_REG = 20
 CALL_LINK = 31
 
+# Trap / interrupt harness (x21-x27)
+TRAP_COUNT = 21      # synchronous traps taken
+IRQ_COUNT = 22       # interrupts taken
+TRAP_TMP = 23        # handler scratch
+CAUSE_ACCUM = 24     # xor of every mcause seen
+NEXT_COMPARE = 25    # next timer compare value
+TIMER_BASE = 26      # TIMER_COMPARE address
+MEPC_ACCUM = 27      # sum of every mepc seen
+
+# The handler sits right after the first jump, so mtvec is a small
+# constant the reference model can use without the "la" pseudo-op.
+TRAP_HANDLER_ADDR = 4
+
 
 # ============================================================
 # Memory configuration
@@ -270,6 +283,98 @@ def generate_helper_call(
 
 
 # ============================================================
+# CSR generation
+# ============================================================
+
+# CSRs the random program may read. mip is excluded: its value
+# depends on timer cycles, which the reference model does not model.
+CSR_READABLE = [
+    "mstatus", "mie", "mtvec", "mepc", "mcause", "mscratch",
+]
+
+# CSRs the random program may write. mstatus / mie / mtvec belong to
+# the trap harness; mepc / mcause are safe (every trap rewrites
+# them before the handler reads them).
+CSR_WRITABLE = [
+    "mscratch", "mscratch", "mscratch", "mepc", "mcause",
+]
+
+
+def generate_csr(
+    last_rd: int | None,
+) -> tuple[list[str], int]:
+
+    rd = reg()
+    kind = random.random()
+
+    # Plain read: csrrs rd, csr, x0
+    if kind < 0.30:
+        csr = random.choice(CSR_READABLE)
+        return [f"csrrs x{rd}, {csr}, x0"], rd
+
+    csr = random.choice(CSR_WRITABLE)
+
+    # Register forms, biased toward the previous result so the CSR
+    # source operand exercises forwarding. rs1 = x0 exercises the
+    # CSRRS / CSRRC write suppression.
+    if kind < 0.65:
+        op = random.choice(["csrrw", "csrrs", "csrrc"])
+
+        if last_rd is not None and random.random() < 0.60:
+            rs1 = last_rd
+        else:
+            rs1 = random.choice([0] + REGS)
+
+        bundle = [f"{op} x{rd}, {csr}, x{rs1}"]
+
+    # Immediate forms; zimm = 0 exercises write suppression.
+    else:
+        op = random.choice(["csrrwi", "csrrsi", "csrrci"])
+
+        if random.random() < 0.25:
+            zimm = 0
+        else:
+            zimm = random.randint(1, 31)
+
+        bundle = [f"{op} x{rd}, {csr}, {zimm}"]
+
+    # Usually read the CSR straight back: a back-to-back CSR
+    # read-after-write that makes the write architecturally visible.
+    if random.random() < 0.70:
+        readback = reg()
+        bundle.append(f"csrrs x{readback}, {csr}, x0")
+        return bundle, readback
+
+    return bundle, rd
+
+
+# ============================================================
+# Synchronous trap generation
+# ============================================================
+
+# Encodings that always raise an illegal-instruction exception.
+ILLEGAL_WORDS = [
+    0x0000_0000,    # all zeros
+    0xFFFF_FFFF,    # all ones (opcode 0x7f)
+    0xFE10_8633,    # ADD with funct7 = 0x7f
+    0x0095_3423,    # SD (RV64 only)
+]
+
+
+def generate_ecall() -> list[str]:
+    return ["ecall"]
+
+
+def generate_illegal() -> list[str]:
+    if random.random() < 0.5:
+        # Access to an unimplemented CSR (0x7c0 is not present).
+        # The destination must not be written.
+        return [f"csrrw x{reg()}, 0x7c0, x{reg()}"]
+
+    return [f".word 0x{random.choice(ILLEGAL_WORDS):08x}"]
+
+
+# ============================================================
 # Random instruction / bundle selection
 # ============================================================
 
@@ -281,10 +386,10 @@ def generate_instruction(
     choice = random.random()
 
     # --------------------------------------------------------
-    # 45% ALU
+    # 33% ALU
     # --------------------------------------------------------
 
-    if choice < 0.45:
+    if choice < 0.33:
         instructions, rd = (
             generate_alu_instruction(
                 last_rd
@@ -296,6 +401,24 @@ def generate_instruction(
             rd,
             label_id,
         )
+
+    # --------------------------------------------------------
+    # 8% CSR access
+    # --------------------------------------------------------
+
+    if choice < 0.41:
+        instructions, rd = generate_csr(last_rd)
+        return instructions, rd, label_id
+
+    # --------------------------------------------------------
+    # 2% ECALL, 2% illegal instruction (synchronous traps)
+    # --------------------------------------------------------
+
+    if choice < 0.43:
+        return generate_ecall(), last_rd, label_id
+
+    if choice < 0.45:
+        return generate_illegal(), last_rd, label_id
 
     # --------------------------------------------------------
     # 15% load
@@ -499,11 +622,52 @@ def main() -> None:
 
     random.seed(seed)
 
+    # Timer interrupt schedule (in RTL cycles; the reference model
+    # takes interrupts where the RTL trace says they happened).
+    first_irq = random.randint(20, 300)
+    irq_interval = random.randint(60, 250)
+
+    t = TRAP_TMP
+
     lines = [
         ".section .text.init",
         ".globl _start",
         "",
         "_start:",
+        "    jal x0, setup",
+        "",
+
+        # ----------------------------------------------------
+        # Trap handler at TRAP_HANDLER_ADDR (= 4).
+        #
+        #   exception: count it, return to mepc + 4
+        #   interrupt: count it, push the timer compare forward
+        #              (clears the IRQ), return to mepc
+        #
+        # Only x21-x27 are touched, so random code state survives.
+        # ----------------------------------------------------
+        "trap_handler:",
+        f"    csrrs x{t}, mcause, x0",
+        f"    xor x{CAUSE_ACCUM}, x{CAUSE_ACCUM}, x{t}",
+        f"    blt x{t}, x0, trap_irq",
+        f"    addi x{TRAP_COUNT}, x{TRAP_COUNT}, 1",
+        f"    csrrs x{t}, mepc, x0",
+        f"    add x{MEPC_ACCUM}, x{MEPC_ACCUM}, x{t}",
+        f"    addi x{t}, x{t}, 4",
+        f"    csrrw x0, mepc, x{t}",
+        "    mret",
+        "trap_irq:",
+        f"    addi x{IRQ_COUNT}, x{IRQ_COUNT}, 1",
+        f"    csrrs x{t}, mepc, x0",
+        f"    add x{MEPC_ACCUM}, x{MEPC_ACCUM}, x{t}",
+        f"    addi x{NEXT_COMPARE}, x{NEXT_COMPARE}, {irq_interval}",
+        f"    sw x{NEXT_COMPARE}, 0(x{TIMER_BASE})",
+        "    mret",
+        "",
+
+        "setup:",
+        f"    addi x{t}, x0, {TRAP_HANDLER_ADDR}",
+        f"    csrrw x0, mtvec, x{t}",
         "",
 
         # x20 = 0x0001_0000
@@ -519,6 +683,28 @@ def main() -> None:
             f"x{HELPER_COUNT}, "
             f"x0, 0"
         ),
+
+        # Trap harness counters.
+        f"    addi x{TRAP_COUNT}, x0, 0",
+        f"    addi x{IRQ_COUNT}, x0, 0",
+        f"    addi x{CAUSE_ACCUM}, x0, 0",
+        f"    addi x{MEPC_ACCUM}, x0, 0",
+
+        # Timer: compare = first_irq, then enable counter + IRQ.
+        # The counter starts at 0 when enabled, so no timer reads
+        # (which the reference model cannot predict) are needed.
+        f"    lui x{TIMER_BASE}, 0x10000",
+        f"    addi x{TIMER_BASE}, x{TIMER_BASE}, 0x14",
+        f"    addi x{NEXT_COMPARE}, x0, {first_irq}",
+        f"    sw x{NEXT_COMPARE}, 0(x{TIMER_BASE})",
+        f"    addi x{t}, x0, 3",
+        f"    sw x{t}, 4(x{TIMER_BASE})",
+
+        # mie.MTIE, then mstatus.MIE
+        f"    addi x{t}, x0, 0x80",
+        f"    csrrs x0, mie, x{t}",
+        f"    addi x{t}, x0, 8",
+        f"    csrrs x0, mstatus, x{t}",
 
         "",
     ]
@@ -583,6 +769,9 @@ def main() -> None:
 
     lines += [
         "",
+        # No interrupts while spinning in the halt loop.
+        "    csrrw x0, mstatus, x0",
+        "",
         "halt:",
         "    jal x0, halt",
         "",
@@ -641,6 +830,11 @@ def main() -> None:
 
     print(
         f"Seed: {seed}"
+    )
+
+    print(
+        f"Timer IRQ: first at cycle {first_irq}, "
+        f"then every {irq_interval} cycles"
     )
 
     print(

@@ -37,12 +37,89 @@ RTL_RETIRE_PATTERN = re.compile(
 )
 
 
+EXPECTED_TRAP_PATTERN = re.compile(
+    r"EXPECTED_TRAP\s+"
+    r"kind=(\w+)\s+"
+    r"pc=([0-9a-fA-F]+)\s+"
+    r"cause=([0-9a-fA-F]+)\s+"
+    r"after=(\d+)"
+)
+
+RTL_TRAP_PATTERN = re.compile(
+    r"TRAP_EVENT\s+"
+    r"kind=(\w+)\s+"
+    r"pc=([0-9a-fA-F]+)\s+"
+    r"instr=[0-9a-fA-F]+\s+"
+    r"cause=([0-9a-fA-F]+)"
+)
+
+
 @dataclass
 class RetireEvent:
     pc: int
     reg_write: bool
     rd: int
     data: int
+
+
+@dataclass
+class TrapEvent:
+    kind: str
+    pc: int
+    cause: int
+    after: int      # retirements before the trap
+
+    def describe(self) -> str:
+        return (
+            f"{self.kind} pc=0x{self.pc:08x} "
+            f"cause=0x{self.cause:08x} "
+            f"after retirement #{self.after}"
+        )
+
+
+def parse_expected_traps(path: Path) -> list[TrapEvent]:
+    events: list[TrapEvent] = []
+
+    for line in path.read_text().splitlines():
+        match = EXPECTED_TRAP_PATTERN.search(line)
+
+        if match:
+            events.append(
+                TrapEvent(
+                    kind=match.group(1),
+                    pc=int(match.group(2), 16),
+                    cause=int(match.group(3), 16),
+                    after=int(match.group(4)),
+                )
+            )
+
+    return events
+
+
+def parse_rtl_traps(path: Path) -> list[TrapEvent]:
+    """TRAP_EVENT lines, positioned by the RETIRE lines before them."""
+
+    events: list[TrapEvent] = []
+    retired = 0
+
+    for line in path.read_text().splitlines():
+        if RTL_RETIRE_PATTERN.match(line):
+            retired += 1
+            continue
+
+        match = RTL_TRAP_PATTERN.search(line)
+
+        if match:
+            events.append(
+                TrapEvent(
+                    kind=match.group(1),
+                    pc=int(match.group(2), 16),
+                    cause=int(match.group(3), 16),
+                    after=retired,
+                )
+            )
+
+    return events
 
 
 def parse_registers(
@@ -211,7 +288,40 @@ def main() -> None:
         )
     )
 
+    expected_traps = parse_expected_traps(
+        reference_path
+    )
+
+    rtl_traps = parse_rtl_traps(
+        simulation_path
+    )
+
     failures = 0
+
+    # ============================================================
+    # Trap events (exceptions and interrupts), in order
+    # ============================================================
+
+    if len(rtl_traps) < len(expected_traps):
+        print(
+            "FAIL: RTL took only "
+            f"{len(rtl_traps)} trap(s), "
+            f"reference expected {len(expected_traps)}"
+        )
+
+        failures += 1
+
+    for i in range(min(len(expected_traps), len(rtl_traps))):
+        expected = expected_traps[i]
+        actual = rtl_traps[i]
+
+        if actual != expected:
+            print(f"FAIL: trap event #{i}")
+            print(f"  expected: {expected.describe()}")
+            print(f"  actual:   {actual.describe()}")
+
+            failures += 1
+            break
 
     # ============================================================
     # Retirement sequence
@@ -384,6 +494,16 @@ def main() -> None:
     print(
         f"All {memory_checks} modified "
         "memory location(s) matched."
+    )
+
+    exceptions = sum(
+        1 for t in expected_traps if t.kind == "exception"
+    )
+
+    print(
+        f"All {len(expected_traps)} trap event(s) matched "
+        f"({exceptions} exception(s), "
+        f"{len(expected_traps) - exceptions} interrupt(s))."
     )
 
 
